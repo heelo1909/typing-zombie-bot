@@ -19,6 +19,7 @@
 | ocr only | 46 / 50 | **97.9 %** ✅ | 0 | 8.6 % | 103 MB |
 
 Not done yet: a live run on the real game (needs the user to click PLAY).
+- Raw recon dumps (incl. copies of typing.com's game code) were pushed by mistake. History was rewritten and force-pushed (user approved), so `main` no longer contains them. GitHub still serves the orphaned commit 0091b5e by direct link until GitHub Support purges it.
 
 ## 2026-11-26: session 1f (speed set to 140 WPM)
 - Default `--wpm` changed from 80 to **140** at the user's request; burst cap `--max-wpm` stays 160.
