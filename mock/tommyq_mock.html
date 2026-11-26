@@ -14,7 +14,7 @@
 /* Test stand-in that follows the researched game model: rows of grass, zombies
    from both sides, Tommy must be in the zombie's row and facing it, whole-word
    typing, wooden fence with HP, power-ups on Enter. Query params:
-   seed, pace=easy|medium|hard, typo=ignore|reset (real game: ignore), hp, autostart=0|1 */
+   seed, pace=easy|medium|hard, typo=ignore|reset (real game: ignore), hp, autostart=0|1 (default 0: waits on a start screen for Enter) */
 (function(){
 var Q = new URLSearchParams(location.search);
 var seed = parseInt(Q.get('seed') || '1', 10) >>> 0;
@@ -31,7 +31,7 @@ var W = cv.width, H = cv.height;
 var game = {
   rows: [140, 220, 300, 380, 460], centerX: 480, fenceL: 420, fenceR: 540,
   player: {row: 2, facing: 'R'}, zombies: [], powerup: null, frozen: 0,
-  hp: parseInt(Q.get('hp') || '10', 10), over: false, started: Q.get('autostart') !== '0',
+  hp: parseInt(Q.get('hp') || '10', 10), over: false, started: Q.get('autostart') === '1',
   level: 1, speed: PACE.speed, every: PACE.every, nextSpawn: 0.5, t: 0, nextId: 1,
   stats: {spawned: 0, kills: 0, fence_hits: 0, misses: 0, keys: 0, powerups: 0, score: 0, resets: 0, chops: 0, kills_at_fence: 0}
 };
@@ -157,6 +157,7 @@ function draw(){
   cx.textAlign = 'left'; cx.font = '14px Helvetica, Arial'; cx.fillStyle = '#fff';
   cx.fillText('HP ' + game.hp + '   Kills ' + game.stats.kills + '   Lv ' + game.level +
               (game.powerup ? '   Power-up: ' + game.powerup : ''), 10, 20);
+  if (!game.started){ cx.font = 'bold 40px Helvetica'; cx.textAlign = 'center'; cx.fillText('Press Enter to start', W/2, H/2); }
   if (game.over){ cx.font = 'bold 48px Helvetica'; cx.textAlign = 'center'; cx.fillText('GAME OVER', W/2, H/2); }
 }
 var last = performance.now();

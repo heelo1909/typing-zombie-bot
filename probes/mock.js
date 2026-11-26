@@ -3,7 +3,7 @@
 var g = window.game;
 if (!g) return {ok: false};
 return {
-  ok: true, over: !!g.over, rows: g.rows.length,
+  ok: true, over: !!g.over, started: !!g.started, rows: g.rows.length,
   player: {row: g.player.row, facing: g.player.facing},
   powerup: g.powerup || null,
   hp: g.hp, stats: g.stats,

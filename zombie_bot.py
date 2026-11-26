@@ -560,6 +560,7 @@ class Bot:
         self.own = (None, 0, 0.0)  # (target id, letters sent, time of last send)
         self.last_mem = None  # (time, last good game-data state)
         self.presumed_dead = {}  # id -> time we sent its last letter
+        self.last_start_press = 0.0
         self.stats = {"ticks": 0, "mem_ok": 0, "ocr_ok": 0, "ocr_agree": [], "keys": 0,
                       "powerups": 0, "words_started": 0, "reconnects": 0,
                       "mem_held": 0, "ocr_fixed": 0}
@@ -686,6 +687,8 @@ class Bot:
         except Exception:
             pass
         t0 = time.time()
+        ru0 = resource.getrusage(resource.RUSAGE_SELF)
+        self.cpu0 = ru0.ru_utime + ru0.ru_stime
         tick = 1.0 / a.hz
         self.idle_reads = 0
         try:
@@ -735,8 +738,16 @@ class Bot:
             return
         self.idle_reads = 0
         if st.get("over"):
-            print("game over detected")
+            print("game over detected (reload the game tab to play again)")
             return "stop"
+        if st.get("started") is False:  # waiting on a start screen: press Enter
+            if now - self.last_start_press > 1.0:
+                self.last_start_press = now
+                print("starting the game (Enter)")
+                self.send("Enter", tick)
+            else:
+                time.sleep(tick)
+            return
         zs = st["zombies"]
         queue = edf_order(zs, self.player)
         cps = choose_cps(queue, self.player, self.base_cps, self.max_cps, self.key_time)
@@ -784,7 +795,7 @@ class Bot:
 
     def report(self, wall):
         ru = resource.getrusage(resource.RUSAGE_SELF)
-        cpu = ru.ru_utime + ru.ru_stime
+        cpu = ru.ru_utime + ru.ru_stime - getattr(self, "cpu0", 0.0)
         rss_mb = ru.ru_maxrss / (1024 * 1024 if sys.platform == "darwin" else 1024)
         agree = self.stats["ocr_agree"]
         summary = {
@@ -794,7 +805,7 @@ class Bot:
             "keys_sent": self.stats["keys"], "targets": self.stats["words_started"],
             "powerups_used": self.stats["powerups"], "reconnects": self.stats["reconnects"],
             "memory_held_ticks": self.stats["mem_held"], "ocr_words_fixed_by_memory": self.stats["ocr_fixed"],
-            "cpu_percent_avg": round(100.0 * cpu / max(wall, 1e-6), 1),
+            "cpu_percent_avg": round(100.0 * cpu / wall, 1) if wall >= 1.0 else None,
             "peak_rss_mb": round(rss_mb, 1),
         }
         print(json.dumps(summary, indent=2))
