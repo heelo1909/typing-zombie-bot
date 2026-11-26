@@ -625,7 +625,7 @@ class Bot:
         self.log = None
         if args.log:
             os.makedirs(os.path.dirname(os.path.abspath(args.log)), exist_ok=True)
-            self.log = csv.writer(open(args.log, "w", newline=""))
+            self.log = csv.writer(open(args.log, "w", newline="", buffering=1))  # line-buffered: readable mid-run
             self.log.writerow(["t", "event", "word", "row", "side", "ttf", "cps", "src"])
 
     def _connect(self):

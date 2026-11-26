@@ -1,5 +1,9 @@
 # progress.md
 
+## 2026-11-26: session 3d (second real run, after the lane fix)
+- Real game, Hard: **315 kills, level 6** (previous run: 106 kills, level 4). First 4 min of the log: no zombie reached the logs, steady 140 WPM, collected book + ice.
+- The CSV log is now line-buffered so it can be read while the bot runs.
+
 ## 2026-11-26: session 3c (lanes flipping back and forth)
 - User report: the bot sometimes alternated between lanes very fast and stalled.
 - Cause: since keys run on a clock (140 WPM change), the bot reads the game right after pressing an arrow. When Chrome applies the key late, the read still shows the old lane, so the bot pressed again, overshot and bounced back. Reproduced with a key-lag option in the mock (`lag=ms`).
