@@ -10,7 +10,9 @@ Keys are sent with CDP Input.dispatchKeyEvent, so no macOS Accessibility or
 Screen Recording permission is required.
 
 Chrome must be started with --remote-debugging-port (see launch_chrome.sh).
-Usage:  ./zombie_bot.py --profile profiles/tommyq.json [--wpm 140] [--dry-run]
+Usage:  ./tommyq_normal.py     (human-like, 140 WPM)
+        ./tommyq_instant.py    (as fast as Chrome accepts keys)
+        ./zombie_bot.py --preset normal|instant [--wpm N] [--max-wpm N] [--dry-run]
 """
 import argparse
 import base64
@@ -882,7 +884,7 @@ class Bot:
         mv = movement_keys(tgt, self.player)
         if mv:  # movement first, then re-read state
             for k in mv:
-                self.send(k, self.key_time * (1 + self.rng.uniform(0, 0.3)))
+                self.send(k, self.key_time * (1 + self.rng.uniform(0, self.a.jitter)))
             return
         # type the next char; when source has no `typed`, type whole word
         if "typed" in tgt and st["src"].startswith("memory"):
@@ -890,13 +892,15 @@ class Bot:
             if idx >= len(tgt["word"]):
                 time.sleep(tick)  # all sent; wait for the game to register the kill
                 return
-            self.send(tgt["word"][idx], key_delay(cps, self.rng))
-            self.own = (tgt["id"], idx + 1, time.time())
-            if idx + 1 >= len(tgt["word"]):
+            end = len(tgt["word"]) if self.a.word_burst else idx + 1
+            for i in range(idx, end):  # instant: the whole rest of the word at once
+                self.send(tgt["word"][i], key_delay(cps, self.rng, self.a.jitter))
+                self.own = (tgt["id"], i + 1, time.time())
+            if end >= len(tgt["word"]):
                 self.presumed_dead[tgt["id"]] = time.time()
         else:
             for ch in tgt["word"][int(tgt.get("typed", 0)):]:
-                self.send(ch, key_delay(cps, self.rng))
+                self.send(ch, key_delay(cps, self.rng, self.a.jitter))
             self.recent_typed[tgt["word"]] = time.time()
             self.presumed_dead[tgt["id"]] = time.time()
             self.target_id = None
@@ -937,14 +941,30 @@ def load_profile(path):
     return p
 
 
-def main(argv=None):
+# Two versions of the bot (see tommyq_normal.py / tommyq_instant.py):
+#   normal  - human-like: 140 WPM with +-30 % jitter, speeds up to 220 WPM only
+#             when a zombie is about to reach the logs; one letter per tick.
+#   instant - kills each word as fast as Chrome accepts keys (~8 ms/letter):
+#             no delays or jitter, whole word sent in one burst, faster polling.
+# Both play only through normal key presses; game data is only ever read.
+PRESETS = {
+    "normal": {"wpm": 140, "max_wpm": 220, "jitter": 0.3, "word_burst": False, "hz": 20},
+    "instant": {"wpm": 6000, "max_wpm": 6000, "jitter": 0.0, "word_burst": True, "hz": 30},
+}
+
+
+def parse_args(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--profile", default=os.path.join(HERE, "profiles", "tommyq.json"))
     ap.add_argument("--port", type=int, default=9222)
     ap.add_argument("--mode", choices=["mixed", "memory", "ocr"], default="mixed")
-    ap.add_argument("--wpm", type=float, default=140, help="normal typing speed")
-    ap.add_argument("--max-wpm", type=float, default=220, help="burst speed when a zombie is about to reach the logs")
-    ap.add_argument("--hz", type=float, default=20, help="state polls per second")
+    ap.add_argument("--preset", choices=sorted(PRESETS), default="normal",
+                    help="normal = human-like 140 WPM; instant = as fast as possible")
+    ap.add_argument("--wpm", type=float, default=None, help="normal typing speed (preset default)")
+    ap.add_argument("--max-wpm", type=float, default=None,
+                    help="speed-up limit when a zombie is about to reach the logs (preset default)")
+    ap.add_argument("--jitter", type=float, default=None, help="random +- fraction on each key delay")
+    ap.add_argument("--hz", type=float, default=None, help="state polls per second (preset default)")
     ap.add_argument("--ocr-hz", type=float, default=0.33,
                     help="OCR cross-checks per second while game data works")
     ap.add_argument("--ocr-fallback-hz", type=float, default=1.5,
@@ -963,6 +983,14 @@ def main(argv=None):
     ap.add_argument("--summary-json", default=None)
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args(argv)
+    for k, v in PRESETS[a.preset].items():  # preset fills anything not given explicitly
+        if getattr(a, k, None) is None:
+            setattr(a, k, v)
+    return a
+
+
+def main(argv=None):
+    a = parse_args(argv)
     profile = load_profile(a.profile)
     if profile.get("needs_recon") and a.mode != "ocr":
         print("profile %s still needs recon (see plan.md); run recon.py first" % a.profile)

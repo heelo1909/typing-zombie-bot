@@ -1,0 +1,42 @@
+[cdp] connection lost (Connection to remote host was lost.); reconnecting
+starting the game (Enter)
+{
+  "seconds": 90.6,
+  "ticks": 1352,
+  "memory_reads": 1352,
+  "ocr_reads": 2,
+  "ocr_agreement": null,
+  "keys_sent": 499,
+  "targets": 42,
+  "powerups_used": 0,
+  "reconnects": 1,
+  "memory_held_ticks": 0,
+  "ocr_words_fixed_by_memory": 0,
+  "lane_reversals": 2,
+  "stale_player_reads": 0,
+  "cpu_percent_avg": 2.0,
+  "peak_rss_mb": 99.0
+}
+
+{
+  "mode": "mixed",
+  "pace": "hard",
+  "typo": "ignore",
+  "seconds": 60.0,
+  "spawned": 43,
+  "kills": 42,
+  "fence_hits": 0,
+  "kill_ratio": 1.0,
+  "stopped_before_logs": 1.0,
+  "hp_lost_to_chopping": 0,
+  "flaky": 0.0,
+  "avg_zombie_life_s": 0.03,
+  "misses": 0,
+  "resets": 0,
+  "keys": 499,
+  "powerups": 0,
+  "level": 3,
+  "bot_cpu_avg": 3.4,
+  "bot_cpu_max": 38.6,
+  "bot_rss_max_mb": 98.9
+}

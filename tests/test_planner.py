@@ -531,5 +531,50 @@ class TestNoLaneThrash(unittest.TestCase):
         self.assertNotIn("'z' + idx", src)
 
 
+class TestVersions(unittest.TestCase):
+    """Two versions: normal (human-like 140 WPM) and instant (as fast as possible)."""
+
+    def test_normal_defaults(self):
+        a = zb.parse_args(["--preset", "normal"])
+        self.assertEqual((a.wpm, a.max_wpm, a.jitter, a.word_burst), (140, 220, 0.3, False))
+
+    def test_default_is_normal(self):
+        self.assertEqual(zb.parse_args([]).wpm, 140)
+
+    def test_instant_defaults(self):
+        a = zb.parse_args(["--preset", "instant"])
+        self.assertTrue(a.word_burst)
+        self.assertEqual(a.jitter, 0.0)
+        self.assertGreaterEqual(a.wpm, 5000)
+
+    def test_explicit_flag_beats_preset(self):
+        self.assertEqual(zb.parse_args(["--preset", "instant", "--wpm", "300"]).wpm, 300)
+
+    def test_wrapper_scripts_exist(self):
+        for v in ("normal", "instant"):
+            path = os.path.join(ROOT, "tommyq_%s.py" % v)
+            with open(path) as f:
+                self.assertIn('"--preset", "%s"' % v, f.read())
+            self.assertTrue(os.access(path, os.X_OK))
+
+    def test_instant_sends_whole_word_in_one_tick(self):
+        import types
+        b = zb.Bot.__new__(zb.Bot)
+        b.a = types.SimpleNamespace(word_burst=True, jitter=0.0, hz=30)
+        b.typist = zb.Typist(None, dry_run=True)
+        b.p, b.player = {"rows": 5}, {"row": 2, "facing": "R"}
+        b.stats = {"keys": 0, "reversals": 0, "ticks": 0, "powerups": 0, "words_started": 0}
+        b.last_move, b.last_move_t, b.next_key_at = None, 0.0, 0.0
+        b.own, b.presumed_dead, b.target_id, b.log = (None, 0, 0.0), {}, None, None
+        b.idle_reads, b.waiting_msg, b.over_reported = 0, None, False
+        b.base_cps = b.max_cps = zb.wpm_to_cps(6000)
+        b.key_time, b.rng = 1 / b.max_cps, random.Random(0)
+        st = {"ok": True, "src": "memory", "zombies": [Z(5, "zombies", 2, "R", 300, speed=30)]}
+        b.read_state = lambda now: st
+        b._tick(0.0, 1 / 30)
+        self.assertEqual(b.typist.sent, len("zombies"))
+        self.assertIn(5, b.presumed_dead)
+
+
 if __name__ == "__main__":
     unittest.main()

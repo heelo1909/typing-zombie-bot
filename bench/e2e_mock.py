@@ -92,6 +92,7 @@ def main():
         "stopped_before_logs": round((s["kills"] - s.get("kills_at_fence", 0)) /
                                      max(1, s["kills"] + st.get("at_fence", 0)), 3),
         "hp_lost_to_chopping": s.get("chops", 0), "flaky": a.flaky,
+        "avg_zombie_life_s": round(s.get("life_sum", 0) / max(1, s["kills"]), 2),
         "misses": s["misses"], "resets": s.get("resets"), "keys": s["keys"], "powerups": s["powerups"], "level": st["level"],
         "bot_cpu_avg": round(sum(cpu[1:]) / max(1, len(cpu) - 1), 1) if cpu else None,
         "bot_cpu_max": round(max(cpu), 1) if cpu else None,

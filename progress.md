@@ -1,5 +1,22 @@
 # progress.md
 
+## 2026-11-26: session 4 (two versions)
+- User asked for two versions: one that kills everything instantly, one that plays normally at ~140 WPM.
+- `PRESETS` in `zombie_bot.py` + two runnable scripts:
+  - `tommyq_normal.py`: 140 WPM, ±30 % jitter, speeds up to 220 WPM only when needed, one letter per tick, 20 Hz polling.
+  - `tommyq_instant.py`: no delays or jitter, whole word per tick (`word_burst`), 30 Hz polling.
+  - Both use real key presses only; game data is read, never written.
+  - `--preset normal|instant` on `zombie_bot.py`; explicit flags override the preset.
+- Mock, hard, 60 s, seed 21:
+
+| version | kills / spawned | stopped before logs | avg zombie life | bot CPU avg | RSS |
+|---|---|---|---|---|---|
+| normal | 48 / 50 | 100 % | 0.95 s | 2.7 % | 99 MB |
+| instant | 42 / 43 | 100 % | **0.03 s** | 3.4 % | 99 MB |
+
+- Instant survival on the mock with 10 HP: ran the full 300 s cap, **0 HP lost**, level 8, 3.5 % CPU. Normal with the 220 WPM limit had died at 173 s.
+- Mock now records zombie lifetime (`avg_zombie_life_s`). Tests **87 / 87**.
+
 ## 2026-11-26: session 3d (second real run, after the lane fix)
 - Real game, Hard: **315 kills, level 6** (previous run: 106 kills, level 4). First 4 min of the log: no zombie reached the logs, steady 140 WPM, collected book + ice.
 - The CSV log is now line-buffered so it can be read while the bot runs.

@@ -33,7 +33,7 @@ var game = {
   player: {row: 2, facing: 'R'}, zombies: [], powerup: null, frozen: 0,
   hp: parseInt(Q.get('hp') || '10', 10), over: false, started: Q.get('autostart') === '1',
   level: 1, speed: PACE.speed, every: PACE.every, nextSpawn: 0.5, t: 0, nextId: 1,
-  stats: {spawned: 0, kills: 0, fence_hits: 0, misses: 0, keys: 0, powerups: 0, score: 0, resets: 0, chops: 0, kills_at_fence: 0}
+  stats: {spawned: 0, kills: 0, fence_hits: 0, misses: 0, keys: 0, powerups: 0, score: 0, resets: 0, chops: 0, kills_at_fence: 0, life_sum: 0}
 };
 // flaky=p: window.game is unreadable with probability p per access, to test
 // the bot's fallback order (held game data -> OCR corrected by game data).
@@ -45,12 +45,12 @@ function spawn(){
   var row = Math.floor(rnd() * game.rows.length);
   var word = WORDS[Math.floor(rnd() * WORDS.length)];
   var z = {id: game.nextId++, word: word, typed: 0, row: row, side: side,
-           x: side === 'L' ? -20 : W + 20, speed: game.speed * (0.85 + rnd() * 0.3), alive: true};
+           born: game.t, x: side === 'L' ? -20 : W + 20, speed: game.speed * (0.85 + rnd() * 0.3), alive: true};
   game.zombies.push(z); game.stats.spawned++;
 }
 function kill(z){
   if (z.atFence) game.stats.kills_at_fence++;
-  z.alive = false; game.stats.kills++; game.stats.score += 10 * z.word.length;
+  z.alive = false; game.stats.kills++; game.stats.life_sum += game.t - z.born; game.stats.score += 10 * z.word.length;
   if (game.stats.kills % 15 === 0){ game.level++; game.speed *= 1.08; game.every *= 0.92; }
   if (!game.powerup && rnd() < 0.08) game.powerup = ['bomb','book','ice'][Math.floor(rnd()*3)];
 }

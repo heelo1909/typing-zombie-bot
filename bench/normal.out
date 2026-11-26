@@ -1,0 +1,41 @@
+starting the game (Enter)
+{
+  "seconds": 60.1,
+  "ticks": 787,
+  "memory_reads": 787,
+  "ocr_reads": 20,
+  "ocr_agreement": 0.071,
+  "keys_sent": 589,
+  "targets": 49,
+  "powerups_used": 0,
+  "reconnects": 0,
+  "memory_held_ticks": 0,
+  "ocr_words_fixed_by_memory": 0,
+  "lane_reversals": 5,
+  "stale_player_reads": 0,
+  "cpu_percent_avg": 2.7,
+  "peak_rss_mb": 98.9
+}
+
+{
+  "mode": "mixed",
+  "pace": "hard",
+  "typo": "ignore",
+  "seconds": 60.0,
+  "spawned": 50,
+  "kills": 48,
+  "fence_hits": 0,
+  "kill_ratio": 1.0,
+  "stopped_before_logs": 1.0,
+  "hp_lost_to_chopping": 0,
+  "flaky": 0.0,
+  "avg_zombie_life_s": 0.95,
+  "misses": 0,
+  "resets": 0,
+  "keys": 589,
+  "powerups": 0,
+  "level": 4,
+  "bot_cpu_avg": 2.7,
+  "bot_cpu_max": 35.7,
+  "bot_rss_max_mb": 98.9
+}
