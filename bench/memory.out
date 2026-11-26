@@ -1,0 +1,37 @@
+{
+  "seconds": 60.0,
+  "ticks": 463,
+  "memory_reads": 463,
+  "ocr_reads": 0,
+  "ocr_agreement": null,
+  "keys_sent": 500,
+  "targets": 44,
+  "powerups_used": 2,
+  "reconnects": 0,
+  "memory_held_ticks": 0,
+  "ocr_words_fixed_by_memory": 0,
+  "cpu_percent_avg": 1.8,
+  "peak_rss_mb": 23.2
+}
+
+{
+  "mode": "memory",
+  "pace": "hard",
+  "typo": "ignore",
+  "seconds": 60.0,
+  "spawned": 49,
+  "kills": 43,
+  "fence_hits": 6,
+  "kill_ratio": 0.878,
+  "stopped_before_logs": 0.864,
+  "hp_lost_to_chopping": 0,
+  "flaky": 0.0,
+  "misses": 0,
+  "resets": 1,
+  "keys": 500,
+  "powerups": 2,
+  "level": 3,
+  "bot_cpu_avg": 1.7,
+  "bot_cpu_max": 8.3,
+  "bot_rss_max_mb": 23.1
+}

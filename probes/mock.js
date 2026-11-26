@@ -10,6 +10,6 @@ return {
   zombies: g.zombies.filter(function (z) { return z.alive; }).map(function (z) {
     return {id: z.id, word: z.word, typed: z.typed, row: z.row, side: z.side,
             dist: Math.max(0, z.side === 'L' ? g.fenceL - z.x : z.x - g.fenceR),
-            speed: g.frozen > 0 ? 0 : z.speed};
+            speed: g.frozen > 0 ? 0 : z.speed, chopping: !!z.atFence};
   })
 };

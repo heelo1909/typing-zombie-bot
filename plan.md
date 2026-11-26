@@ -21,6 +21,8 @@ Everything that doesn't depend on the real game is built and tested against `moc
 ## Confirmed (user, 2026-11-26)
 5 rows, both sides, typo = no effect, leaving row/side resets the partly typed word. The mock and planner already follow these rules.
 
+Also confirmed: letters go to the word you start typing; a label behind another zombie can be covered on screen. User priority: closest to the logs / most dangerous first; game data outranks OCR (already implemented).
+
 ## Known open questions
-- If two zombies share Tommy's row and side, which one do typed letters go to?
+- Does a zombie that reaches the logs stay there chopping until killed? (mock assumes yes)
 - Power-up indicator location (for the probe or OCR).

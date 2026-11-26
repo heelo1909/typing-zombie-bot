@@ -21,17 +21,24 @@ var seed = parseInt(Q.get('seed') || '1', 10) >>> 0;
 function rnd(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
 var PACE = {easy:{speed:35,every:2.6}, medium:{speed:50,every:1.9}, hard:{speed:68,every:1.35}}[Q.get('pace')||'hard'];
 var TYPO = Q.get('typo') || 'ignore';
+// chop=1 (default): zombies stop at the logs and chop (1 HP every CHOP_EVERY s)
+// until killed. chop=0: they hit once and vanish.
+var CHOP = Q.get('chop') !== '0', CHOP_EVERY = 1.5;
 var WORDS = ("abandoned absolutely academic accelerate accidental accompany accomplish accurate achievement acknowledge acquisition adjustment administer admirable adolescent advantage adventure advertise affection aggressive agreement allocation alternative ambassador ambitious amendment analysis ancestor announcement anticipate apparently appearance appreciate approximate architect argument arrangement assessment assignment assistance atmosphere attachment attractive authority automatic available awkward background bankruptcy beautiful beginning behavior beneficial biography boundary breakfast brilliant broadcast calculate campaign candidate capability catastrophe celebrate certainly challenge character chemistry circumstance classroom collection combination comfortable commercial commission commitment communicate community comparison competition complicated comprehensive concentrate conclusion conference confidence confusion connection conscious consequence considerable consistent constitution construction consultant contemporary continuous contribution controversy convenience conversation cooperation corporation creativity criticism curiosity curriculum dangerous dedication definitely delightful democracy demonstrate department dependent description desperate destination determine development dictionary difference difficulty dimension direction disappear discipline discovery discussion distribute documentary domestic dramatically earthquake economics education efficiency electricity elementary eliminate embarrass emergency emotional emphasize employment encounter encourage engineering enormous enthusiasm environment equipment especially establish evaluation eventually everything evolution examination excellent excitement executive exhibition existence expensive experience experiment explanation exploration expression extension extraordinary fascinating favorite festival financial flexibility forgotten formation fortunately foundation frequently friendship frightening fundamental generation geography government graduation guarantee guideline happiness headquarters helicopter highlight historical hospital household hypothesis identical imagination immediately implement importance impossible impression improvement incredible independent indication individual industrial inevitable influence information ingredient initiative innocent inspection installation institution instruction instrument intelligence intention interesting interpretation interview introduction investigation invisible journalist judgment knowledge laboratory landscape language leadership legislation lightning literature magnificent management manufacture marvelous mathematics measurement mechanism medication membership memorable microphone midnight millennium mysterious narrative necessary negotiation neighborhood nevertheless newspaper nightmare notebook objective observation obviously occasional occupation operation opportunity opposition orchestra organization originally outstanding overwhelming paragraph parliament participate particular passenger perception performance permanent personality perspective phenomenon philosophy photograph physically playground pleasure political population possession possibility potential practical preference preparation presentation president prevention principle priority probability procedure production profession programmer progressive pronounce proportion protection psychology publication punishment qualification quarterback questionnaire realistic reasonable recognition recommend reflection refrigerator regulation relationship relatively reluctant remarkable repetition representative reputation requirement reservation residential resolution resource responsibility restaurant revolution sanctuary satisfaction scholarship scientific secretary security selection sensitive separation significant similarity situation skeleton slaughter something sophisticated specialist spectacular spontaneous statement strategy strengthen structure submarine substantial successful sufficient suggestion supermarket supervisor surprising surrounding suspicious sympathy technique technology telephone temperature temporary territory thoroughly throughout tomorrow tournament tradition transform transportation tremendous ultimately uncomfortable understanding unemployment unexpected university unnecessary vegetable vulnerable wilderness wonderful worthwhile yesterday zookeeper").split(' ');
 
 var cv = document.getElementById('game'), cx = cv.getContext('2d');
 var W = cv.width, H = cv.height;
-var game = window.game = {
+var game = {
   rows: [140, 220, 300, 380, 460], centerX: 480, fenceL: 420, fenceR: 540,
   player: {row: 2, facing: 'R'}, zombies: [], powerup: null, frozen: 0,
   hp: parseInt(Q.get('hp') || '10', 10), over: false, started: Q.get('autostart') !== '0',
   level: 1, speed: PACE.speed, every: PACE.every, nextSpawn: 0.5, t: 0, nextId: 1,
-  stats: {spawned: 0, kills: 0, fence_hits: 0, misses: 0, keys: 0, powerups: 0, score: 0, resets: 0}
+  stats: {spawned: 0, kills: 0, fence_hits: 0, misses: 0, keys: 0, powerups: 0, score: 0, resets: 0, chops: 0, kills_at_fence: 0}
 };
+// flaky=p: window.game is unreadable with probability p per access, to test
+// the bot's fallback order (held game data -> OCR corrected by game data).
+var FLAKY = parseFloat(Q.get('flaky') || '0');
+Object.defineProperty(window, 'game', {get: function(){ return Math.random() < FLAKY ? undefined : game; }});
 
 function spawn(){
   var side = rnd() < 0.5 ? 'L' : 'R';
@@ -42,17 +49,26 @@ function spawn(){
   game.zombies.push(z); game.stats.spawned++;
 }
 function kill(z){
+  if (z.atFence) game.stats.kills_at_fence++;
   z.alive = false; game.stats.kills++; game.stats.score += 10 * z.word.length;
   if (game.stats.kills % 15 === 0){ game.level++; game.speed *= 1.08; game.every *= 0.92; }
   if (!game.powerup && rnd() < 0.08) game.powerup = ['bomb','book','ice'][Math.floor(rnd()*3)];
 }
-function targetInLane(){
-  var p = game.player, best = null, bd = 1e9;
+function distOf(z){ return z.side === 'L' ? game.fenceL - z.x : z.x - game.fenceR; }
+// Confirmed rule: letters go to the word you START typing. With nothing
+// started in this lane, the first letter picks the zombie whose word begins
+// with it (nearest to the logs if several do); it stays locked until killed
+// or until Tommy leaves the row / turns (which resets it).
+function lockedInLane(){
+  var p = game.player;
+  return game.zombies.filter(function(z){
+    return z.alive && z.typed > 0 && z.row === p.row && z.side === p.facing; })[0] || null;
+}
+function pickByFirstLetter(ch){
+  var p = game.player, best = null;
   game.zombies.forEach(function(z){
-    if (!z.alive || z.row !== p.row || z.side !== p.facing) return;
-    var d = z.side === 'L' ? game.fenceL - z.x : z.x - game.fenceR;
-    if (z.typed > 0) d -= 1e6;          // keep partially typed one locked
-    if (d < bd){ bd = d; best = z; }
+    if (!z.alive || z.row !== p.row || z.side !== p.facing || z.word[0] !== ch) return;
+    if (!best || distOf(z) < distOf(best)) best = z;
   });
   return best;
 }
@@ -82,12 +98,13 @@ document.addEventListener('keydown', function(e){
   }
   if (e.key === 'Enter'){ usePowerup(); return; }
   if (e.key.length !== 1) return;
-  var z = targetInLane();
-  if (z && z.word[z.typed] === e.key){
+  var z = lockedInLane();
+  if (!z){ z = pickByFirstLetter(e.key); if (z){ z.typed = 1; if (z.typed >= z.word.length) kill(z); return; } game.stats.misses++; return; }
+  if (z.word[z.typed] === e.key){
     z.typed++; if (z.typed >= z.word.length) kill(z);
   } else {
     game.stats.misses++;
-    if (z && TYPO === 'reset') z.typed = 0;
+    if (TYPO === 'reset') z.typed = 0;
   }
 });
 
@@ -101,7 +118,18 @@ function step(dt){
     if (!z.alive) return;
     if (game.frozen <= 0) z.x += (z.side === 'L' ? 1 : -1) * z.speed * dt;
     var reached = z.side === 'L' ? z.x >= game.fenceL : z.x <= game.fenceR;
-    if (reached){ z.alive = false; game.stats.fence_hits++; (game.fenceLog = game.fenceLog || []).push([z.word, z.row, z.side, z.typed, +game.t.toFixed(1)]); game.hp--; if (game.hp <= 0) game.over = true; }
+    if (reached){
+      z.x = z.side === 'L' ? game.fenceL : game.fenceR;
+      if (!z.atFence){
+        z.atFence = true; z.chopT = 0; game.stats.fence_hits++;
+        (game.fenceLog = game.fenceLog || []).push([z.word, z.row, z.side, z.typed, +game.t.toFixed(1)]);
+        if (!CHOP){ z.alive = false; game.hp--; }
+      } else if (game.frozen <= 0){
+        z.chopT += dt;
+        if (z.chopT >= CHOP_EVERY){ z.chopT -= CHOP_EVERY; game.hp--; game.stats.chops++; }
+      }
+      if (game.hp <= 0) game.over = true;
+    }
   });
   game.zombies = game.zombies.filter(function(z){ return z.alive; });
 }
@@ -115,7 +143,7 @@ function draw(){
   cx.fillStyle = '#2b6cd4'; cx.beginPath(); cx.arc(game.centerX, py, 16, 0, 7); cx.fill();
   cx.fillStyle = '#fff'; cx.fillRect(game.centerX + (p.facing === 'R' ? 14 : -26), py - 3, 12, 6);
   cx.font = 'bold 20px Helvetica, Arial, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  game.zombies.forEach(function(z){
+  game.zombies.slice().sort(function(a, b){ return distOf(b) - distOf(a); }).forEach(function(z){
     var y = game.rows[z.row];
     cx.fillStyle = game.frozen > 0 ? '#9fd' : '#6b8e23';
     cx.fillRect(z.x - 12, y - 16, 24, 34);

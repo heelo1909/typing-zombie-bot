@@ -1,0 +1,4 @@
+usage: e2e_mock.py [-h] [--port PORT] [--seconds SECONDS] [--mode MODE]
+                   [--pace PACE] [--typo TYPO] [--seed SEED] [--hp HP]
+                   [--flaky FLAKY] [--extra EXTRA] [--out OUT]
+e2e_mock.py: error: argument --flaky: expected one argument

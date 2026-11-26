@@ -1,5 +1,34 @@
 # progress.md
 
+## 2026-11-26: session 1c (targeting + game-data priority)
+
+### User input
+Letters go to the word you **start** typing; a zombie behind another can have its label covered on screen; prioritize zombies **closest to the logs / most dangerous**; **game data must outrank OCR**.
+
+### Changes
+- Planner priority (`danger_key`): zombies chopping the logs first, then closest to the logs (time-to-logs), then fewest moves, then shortest word. Choppers are always killable and get a 0.75 s deadline, so the bot speeds up for them.
+- `game_lock`: a word already started in Tommy's lane is where letters go, so the bot finishes it unless switching saves more zombies.
+- Fallback order when game data isn't available: fresh game data → last game data moved forward (≤ 1 s, `--mem-hold`) → OCR with words snapped to game-data spellings and hidden zombies kept (≤ 2 s, `--mem-carry`) → raw OCR (needs 2 identical reads).
+- Zombies whose last letter was sent are treated as dead unless fresh game data shows them alive. This fixed the bot chasing killed zombies in old game data: with 90 % of game-data reads failing, stopped-before-logs went from 61 % to 100 %.
+- Mock: first-letter lock, zombies chop the logs (1 HP / 1.5 s) until killed (`chop=1`, assumed), nearer labels drawn over the ones behind, `flaky=p` to make game-data reads fail.
+- Tests: **65 / 65 pass** (+16: danger order, game lock, fusion, source priority, presumed-dead).
+
+### E2E on the mock: hard pace, chopping on, 60 s, seed 21
+"Stopped" = killed before reaching the logs.
+
+| mode | game-data reads failing | kills | stopped before logs | HP lost | wrong keys | bot CPU avg | RSS |
+|---|---|---|---|---|---|---|---|
+| memory | 0 % | 43 | 86.4 % (seeds 5 / 33: 97.7 / 100 %; avg 94.7 %) | 0 | 0 | 1.7 % | 23 MB |
+| mixed (default) | 0 % | 43 | **91.3 %** | 2 | 0 | 6.0 % | 105 MB |
+| mixed | 30 % | 45 | **93.3 %** | 2 | 0 | 6.3 % | 106 MB |
+| mixed | 90 % | 46 | **100 %** | 0 | 7 | 6.1 % | 102 MB |
+| ocr only | n/a | 32 | 81.2 % ❌ | 4 | 0 | 13.0 % | 101 MB |
+
+### Notes
+- Runs started as background jobs from the agent sometimes ran 2–3× slower than requested (macOS throttling those jobs); foreground runs are on time. Benchmark in the foreground.
+- OCR-only is still below 90 %; retune on the real game's font after recon.
+
+
 ## 2026-11-26: session 1b (game rules confirmed by the user)
 
 ### Confirmed rules

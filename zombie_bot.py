@@ -97,9 +97,25 @@ def remaining(z):
     return max(0, len(z["word"]) - int(z.get("typed", 0)))
 
 
+CHOP_GRACE = 0.75  # s: deadline used for a zombie already chopping the logs
+
+
+def at_logs(z):
+    """Zombie has reached the fence (logs) and is chopping: the most dangerous."""
+    return bool(z.get("chopping")) or z["dist"] <= 0
+
+
 def time_to_fence(z):
+    if at_logs(z):
+        return 0.0
     sp = z.get("speed") or 0.0
     return z["dist"] / sp if sp > 0 else INF
+
+
+def deadline(z):
+    """Seconds we have to kill z. A chopping zombie damages the logs every
+    moment, so it gets a short grace deadline instead of 0."""
+    return CHOP_GRACE if at_logs(z) else time_to_fence(z)
 
 
 def moves(z, player):
@@ -109,20 +125,26 @@ def moves(z, player):
     return m
 
 
+def danger_key(z, player):
+    """Priority: chopping the logs first, then closest to the logs (in time),
+    then fewest moves, then shortest word."""
+    return (not at_logs(z), time_to_fence(z), moves(z, player), remaining(z))
+
+
 def edf_order(zombies, player):
-    """Earliest-deadline-first, tie-break by fewest moves then fewer chars."""
+    """Most dangerous first (see danger_key); finished words dropped."""
     live = [z for z in zombies if remaining(z) > 0]
-    return sorted(live, key=lambda z: (time_to_fence(z), moves(z, player), remaining(z)))
+    return sorted(live, key=lambda z: danger_key(z, player))
 
 
 def required_cps(queue, player, key_time, margin=0.25, depth=3):
-    """Chars/sec needed so the first `depth` zombies in EDF order die in time."""
+    """Chars/sec needed so the first `depth` zombies in priority order die in time."""
     need, chars, keys, cur = 0.0, 0, 0, dict(player)
     for z in queue[:depth]:
         keys += moves(z, cur)
         cur = {"row": z["row"], "facing": z["side"]}
         chars += remaining(z)
-        avail = time_to_fence(z) - keys * key_time - margin
+        avail = deadline(z) - keys * key_time - margin
         if avail == INF:
             continue
         need = max(need, chars / max(avail, 0.05))
@@ -135,6 +157,8 @@ def choose_cps(queue, player, base_cps, max_cps, key_time):
 
 
 def killable(z, player, cps, key_time):
+    if at_logs(z):  # it stays at the logs, so it can always still be killed
+        return True
     return moves(z, player) * key_time + remaining(z) / cps < time_to_fence(z)
 
 
@@ -144,32 +168,39 @@ def switch_pays_off(cur, other, player, cps, key_time):
     and switch only if it saves more zombies."""
     t_cur = moves(cur, player) * key_time + remaining(cur) / cps
     after_cur = {"row": cur["row"], "facing": cur["side"]}
-    a_other = t_cur + moves(other, after_cur) * key_time + remaining(other) / cps < time_to_fence(other)
+    a_other = t_cur + moves(other, after_cur) * key_time + remaining(other) / cps < deadline(other)
     a_saved = 1 + a_other  # cur itself is assumed saved when finished first
     t_other = moves(other, player) * key_time + remaining(other) / cps
     after_other = {"row": other["row"], "facing": other["side"]}
     resets = moves(other, player) > 0
     cur_left = len(cur["word"]) if resets else remaining(cur)
-    b_other = t_other < time_to_fence(other)
-    b_cur = t_other + moves(cur, after_other) * key_time + cur_left / cps < time_to_fence(cur)
+    b_other = t_other < deadline(other)
+    b_cur = t_other + moves(cur, after_other) * key_time + cur_left / cps < deadline(cur)
     return b_other + b_cur > a_saved
 
 
+def game_lock(zombies, player):
+    """The zombie the game is sending letters to: letters go to the word you
+    started typing, in Tommy's current row and facing side."""
+    return next((z for z in zombies if z.get("typed", 0) > 0 and remaining(z) > 0
+                 and z["row"] == player["row"] and z["side"] == player["facing"]), None)
+
+
 def choose_target(zombies, player, current_id, max_cps, key_time):
-    """Keep the current target unless switching saves more zombies (switching
-    away from its row/side resets its progress); otherwise follow EDF, skipping
-    zombies that cannot be killed in time even at max speed (unless none can)."""
+    """The game's lock (a word already started in Tommy's lane) wins: letters
+    go there. It's only abandoned when switching saves more zombies, since
+    leaving the lane resets it. Otherwise: most dangerous first (chopping the
+    logs, then closest to the logs), skipping walkers that can't be reached in
+    time even at max speed (unless none can)."""
     queue = edf_order(zombies, player)
     if not queue:
         return None
-    by_id = {z["id"]: z for z in queue}
-    cur = by_id.get(current_id)
-    if cur is None:  # also lock onto a zombie the game already has progress on
-        cur = next((z for z in queue if z.get("typed", 0) > 0
-                    and z["row"] == player["row"] and z["side"] == player["facing"]), None)
+    cur = game_lock(queue, player)
+    if cur is None:
+        cur = next((z for z in queue if z["id"] == current_id), None)
     if cur is not None:
         for o in queue:
-            if o["id"] == cur["id"] or time_to_fence(o) >= time_to_fence(cur):
+            if o["id"] == cur["id"] or danger_key(o, player)[:2] >= danger_key(cur, player)[:2]:
                 continue
             if killable(o, player, max_cps, key_time) and switch_pays_off(cur, o, player, max_cps, key_time):
                 return o
@@ -199,13 +230,13 @@ def choose_powerup(state, player, cps, key_time):
         return False
     doomed = [z for z in zs if not killable(z, player, cps, key_time)]
     if p == "bomb":
-        near = [z for z in zs if time_to_fence(z) < 3.0]
+        near = [z for z in zs if deadline(z) < 3.0]
         return len(near) >= 3 or bool(doomed)
     if p == "book":
         return sum(1 for z in zs if z["row"] == player["row"]) >= 2 or \
             any(z["row"] == player["row"] for z in doomed)
     if p == "ice":
-        return bool(doomed)
+        return bool(doomed) or sum(1 for z in zs if at_logs(z)) >= 2
     return bool(doomed)
 
 
@@ -387,6 +418,44 @@ class OcrReader:
         return {"ok": True, "src": "ocr", "zombies": zs, "rows": len(p["rows_y"])}
 
 
+def advance(zombies, dt):
+    """Copy of zombies moved forward dt seconds along their speed."""
+    out = []
+    for z in zombies:
+        z = dict(z)
+        if not at_logs(z):
+            z["dist"] = max(0.0, z["dist"] - (z.get("speed") or 0.0) * dt)
+        out.append(z)
+    return out
+
+
+def fuse_ocr_with_memory(ocr_zs, mem_zs, min_ratio=0.7):
+    """Game data outranks OCR. Each OCR word is snapped to the most similar
+    game-data word in the same row and side (fixes misreads like
+    'quartgrback'); game-data zombies OCR can't see (label hidden behind the
+    zombie in front) are kept. Returns (zombies, corrections)."""
+    import difflib
+    out, used, fixes = [], set(), 0
+    for o in ocr_zs:
+        best, br = None, min_ratio
+        for m in mem_zs:
+            if m["id"] in used or m["row"] != o["row"] or m["side"] != o["side"]:
+                continue
+            r = difflib.SequenceMatcher(None, o["word"].lower(), m["word"].lower()).ratio()
+            if r >= br:
+                best, br = m, r
+        if best is None:
+            out.append(o)
+            continue
+        used.add(best["id"])
+        if best["word"] != o["word"]:
+            fixes += 1
+        # word/id/typed from game data, position from the fresher OCR frame
+        out.append(dict(best, dist=o["dist"]))
+    out += [m for m in mem_zs if m["id"] not in used]
+    return out, fixes
+
+
 class OcrWorker(threading.Thread):
     """Runs OCR on its own CDP connection so the typing loop never waits."""
 
@@ -489,8 +558,11 @@ class Bot:
         self.last_ocr_t = 0.0
         self.ocr_seen = {}  # OCR word id -> consecutive frames seen
         self.own = (None, 0, 0.0)  # (target id, letters sent, time of last send)
+        self.last_mem = None  # (time, last good game-data state)
+        self.presumed_dead = {}  # id -> time we sent its last letter
         self.stats = {"ticks": 0, "mem_ok": 0, "ocr_ok": 0, "ocr_agree": [], "keys": 0,
-                      "powerups": 0, "words_started": 0, "reconnects": 0}
+                      "powerups": 0, "words_started": 0, "reconnects": 0,
+                      "mem_held": 0, "ocr_fixed": 0}
         self.log = None
         if args.log:
             os.makedirs(os.path.dirname(os.path.abspath(args.log)), exist_ok=True)
@@ -529,15 +601,30 @@ class Bot:
         return False
 
     def read_state(self, now):
+        """Game data (memory) is the source of truth; OCR only fills gaps.
+        1. fresh memory read            -> use it (OCR = cross-check stat only)
+        2. memory failed < mem_hold ago -> last memory state moved forward
+        3. otherwise OCR, snapped to recent game-data words (fuse_ocr_with_memory)"""
         st = None
         if self.mem:
             try:
                 st = self.mem.read()
                 st["src"] = "memory"
                 self.stats["mem_ok"] += 1
+                self.last_mem = (now, st)
             except (CDPError, KeyError) as e:
                 if self.a.verbose:
                     print("[mem] %s" % e, file=sys.stderr)
+        if st is not None:  # fresh game data is the truth: forget guesses it contradicts
+            alive = {z["id"] for z in st["zombies"]}
+            self.presumed_dead = {i: t for i, t in self.presumed_dead.items()
+                                  if i not in alive and now - t < 3}
+        mem_age = now - self.last_mem[0] if self.last_mem else INF
+        if st is None and mem_age < self.a.mem_hold:
+            held = self.last_mem[1]
+            st = dict(held, src="memory-held", zombies=[
+                z for z in advance(held["zombies"], mem_age) if z["id"] not in self.presumed_dead])
+            self.stats["mem_held"] += 1
         latest = self.ocr.latest if self.ocr else None
         if latest and now - latest[0] < 1.5:
             ocr_t, o = latest
@@ -549,19 +636,29 @@ class Bot:
                 zs = [dict(z) for z in o["zombies"]
                       if self.ocr_seen.get(z["id"], 0) >= self.a.ocr_confirm
                       and not (z["word"] in self.recent_typed and ocr_t < self.recent_typed[z["word"]] + 0.3)]
+                src = "ocr"
+                if self.last_mem and mem_age < self.a.mem_carry:
+                    # game data still outranks: fix OCR spellings, keep hidden zombies
+                    mem_zs = advance(self.last_mem[1]["zombies"], ocr_t - self.last_mem[0])
+                    zs = [dict(z) for z in o["zombies"]]  # no confirm wait needed
+                    zs, fixes = fuse_ocr_with_memory(zs, mem_zs)
+                    zs = [z for z in zs if z["id"] not in self.presumed_dead]
+                    for z in zs:  # old game-data progress is stale; trust our own count
+                        z["typed"] = self.own[1] if z["id"] == self.own[0] else 0
+                    self.stats["ocr_fixed"] += fixes
+                    src = "ocr+memory"
                 self.speed.update(zs, ocr_t)
-                for z in zs:  # advance positions to "now"
-                    z["dist"] = max(0.0, z["dist"] - z["speed"] * (now - ocr_t))
+                zs = advance(zs, now - ocr_t)
                 self.recent_typed = {w: t for w, t in self.recent_typed.items() if now - t < 3}
-                return dict(o, zombies=zs)
-            if fresh:  # cross-check: fraction of memory words OCR also saw
+                return dict(o, zombies=zs, src=src)
+            if fresh and st["src"] == "memory":  # cross-check only
                 mw = {z["word"].lower() for z in st["zombies"]}
                 ow = {z["word"].lower() for z in o["zombies"]}
                 if mw:
                     self.stats["ocr_agree"].append(len(mw & ow) / len(mw))
         if st is None:
             return None
-        if st.get("player"):
+        if st.get("player") and st["src"] == "memory":  # held state's player is stale
             self.player = {"row": st["player"]["row"], "facing": st["player"]["facing"]}
         self.speed.update(st["zombies"], now)
         return st
@@ -663,17 +760,20 @@ class Bot:
                 self.send(k, self.key_time * (1 + self.rng.uniform(0, 0.3)))
             return
         # type the next char; when source has no `typed`, type whole word
-        if "typed" in tgt and st["src"] == "memory":
+        if "typed" in tgt and st["src"].startswith("memory"):
             idx = self._next_index(tgt, now)
             if idx >= len(tgt["word"]):
                 time.sleep(tick)  # all sent; wait for the game to register the kill
                 return
             self.send(tgt["word"][idx], key_delay(cps, self.rng))
             self.own = (tgt["id"], idx + 1, time.time())
+            if idx + 1 >= len(tgt["word"]):
+                self.presumed_dead[tgt["id"]] = time.time()
         else:
             for ch in tgt["word"][int(tgt.get("typed", 0)):]:
                 self.send(ch, key_delay(cps, self.rng))
             self.recent_typed[tgt["word"]] = time.time()
+            self.presumed_dead[tgt["id"]] = time.time()
             self.target_id = None
 
     def _log(self, now, event, word, z, cps, src):
@@ -693,6 +793,7 @@ class Bot:
             "ocr_agreement": round(sum(agree) / len(agree), 3) if agree else None,
             "keys_sent": self.stats["keys"], "targets": self.stats["words_started"],
             "powerups_used": self.stats["powerups"], "reconnects": self.stats["reconnects"],
+            "memory_held_ticks": self.stats["mem_held"], "ocr_words_fixed_by_memory": self.stats["ocr_fixed"],
             "cpu_percent_avg": round(100.0 * cpu / max(wall, 1e-6), 1),
             "peak_rss_mb": round(rss_mb, 1),
         }
@@ -719,6 +820,10 @@ def main(argv=None):
     ap.add_argument("--max-wpm", type=float, default=160)
     ap.add_argument("--hz", type=float, default=20, help="state polls per second")
     ap.add_argument("--ocr-hz", type=float, default=1.0, help="OCR cross-checks per second")
+    ap.add_argument("--mem-hold", type=float, default=1.0,
+                    help="s to keep using the last game-data state if a read fails, before OCR")
+    ap.add_argument("--mem-carry", type=float, default=2.0,
+                    help="s that old game data still corrects OCR words / keeps hidden zombies")
     ap.add_argument("--ocr-confirm", type=int, default=2,
                     help="OCR-only: frames a word must be read identically before typing it")
     ap.add_argument("--ocr-fast", action="store_true", help="Vision fast mode (less CPU, less accurate)")

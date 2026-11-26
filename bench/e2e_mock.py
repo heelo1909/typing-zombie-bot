@@ -35,7 +35,9 @@ def mock_page(port, url):
 
 def stats(cdp):
     r = cdp.call("Runtime.evaluate", returnByValue=True,
-                 expression="({s: game.stats, hp: game.hp, over: game.over, level: game.level})")
+                 expression="(function(){var g; for (var i = 0; i < 50 && !g; i++) g = window.game;"
+                 "return {s: g.stats, hp: g.hp, over: g.over, level: g.level,"
+                 "at_fence: g.zombies.filter(function(z){return z.alive && z.atFence}).length}})()")
     return r["result"]["value"]
 
 
@@ -48,12 +50,13 @@ def main():
     ap.add_argument("--typo", default="ignore", help="real game: ignore")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--hp", type=int, default=1000, help="high HP so the run lasts --seconds")
+    ap.add_argument("--flaky", type=float, default=0.0, help="chance a game-data read fails")
     ap.add_argument("--extra", default="", help="extra args for zombie_bot.py")
     ap.add_argument("--out", default=os.path.join(ROOT, "bench", "e2e_result.json"))
     a = ap.parse_args()
 
-    url = "file://%s/mock/tommyq_mock.html?seed=%d&pace=%s&typo=%s&hp=%d" % (
-        ROOT, a.seed, a.pace, a.typo, a.hp)
+    url = "file://%s/mock/tommyq_mock.html?seed=%d&pace=%s&typo=%s&hp=%d&flaky=%s" % (
+        ROOT, a.seed, a.pace, a.typo, a.hp, a.flaky)
     cdp = mock_page(a.port, url)
     cmd = [sys.executable, os.path.join(ROOT, "zombie_bot.py"), "--profile",
            os.path.join(ROOT, "profiles", "mock.json"), "--port", str(a.port),
@@ -71,13 +74,19 @@ def main():
         except psutil.NoSuchProcess:
             break
     out = proc.communicate()[0]
-    st = stats(cdp)
+    cdp.close()  # the idle connection may have been dropped; use a fresh one
+    t = next(t for t in list_targets(a.port) if "tommyq_mock.html" in t.get("url", ""))
+    st = stats(CDP(t["webSocketDebuggerUrl"]))
     s = st["s"]
     resolved = s["kills"] + s["fence_hits"]
     res = {
         "mode": a.mode, "pace": a.pace, "typo": a.typo, "seconds": a.seconds,
         "spawned": s["spawned"], "kills": s["kills"], "fence_hits": s["fence_hits"],
         "kill_ratio": round(s["kills"] / resolved, 3) if resolved else None,
+        # zombies stopped before reaching the logs, out of all that were killed or reached them
+        "stopped_before_logs": round((s["kills"] - s.get("kills_at_fence", 0)) /
+                                     max(1, s["kills"] + st.get("at_fence", 0)), 3),
+        "hp_lost_to_chopping": s.get("chops", 0), "flaky": a.flaky,
         "misses": s["misses"], "resets": s.get("resets"), "keys": s["keys"], "powerups": s["powerups"], "level": st["level"],
         "bot_cpu_avg": round(sum(cpu[1:]) / max(1, len(cpu) - 1), 1) if cpu else None,
         "bot_cpu_max": round(max(cpu), 1) if cpu else None,

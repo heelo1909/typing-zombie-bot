@@ -35,7 +35,9 @@
 ## Math
 - time-to-fence `ttf = dist / speed`
 - moves = |row − player.row| + (1 if side ≠ facing)
-- **Target**: earliest-deadline-first (EDF), tie-break fewest moves then fewest chars. Skip zombies that can't be killed even at max speed (`moves·key_time + chars/max_cps ≥ ttf`) unless none can. Keep the current target unless switching saves more zombies (`switch_pays_off`). Switching away from the row or side resets the current word (confirmed rule), so the cost compares *finish current, then other* with *other now, then current from scratch*. With no current target, lock onto a zombie in Tommy's lane that the game already shows progress on.
+- **Danger order** (`danger_key`): (1) zombies already chopping the logs, (2) smallest time-to-logs, (3) fewest moves, (4) shortest word. A chopping zombie gets a 0.75 s grace deadline (`CHOP_GRACE`) for speed math and is always killable.
+- **Game lock** (`game_lock`): a word already started in Tommy's row and side is where letters go, so it is the current target regardless of what the bot planned.
+- **Target**: most dangerous first, tie-break fewest moves then fewest chars. Skip zombies that can't be killed even at max speed (`moves·key_time + chars/max_cps ≥ ttf`) unless none can. Keep the current target unless switching saves more zombies (`switch_pays_off`). Switching away from the row or side resets the current word (confirmed rule), so the cost compares *finish current, then other* with *other now, then current from scratch*. With no current target, lock onto a zombie in Tommy's lane that the game already shows progress on.
 - **Speed**: required cps over the first 3 EDF targets = max_k (Σchars_k / (ttf_k − Σmoves_k·key_time − 0.25 s)); typing cps = clamp(1.15 × required, base 80 WPM, max 160 WPM). 1 WPM = 5 chars/min.
 - **Jitter**: each key delay = (1/cps) × U(0.7, 1.3).
 - **Power-ups**: Bomb if ≥ 3 zombies have ttf < 3 s or any is doomed; Book if ≥ 2 in Tommy's row (or a doomed one is); Ice if any is doomed.
@@ -43,7 +45,7 @@
 ## Mixing memory and OCR
 | Mode | Source of truth | OCR use |
 |---|---|---|
-| `mixed` (default) | memory | 1 Hz cross-check, logged as `ocr_agreement`; takes over if the probe fails |
+| `mixed` (default) | memory | 1 Hz cross-check (`ocr_agreement`). If a read fails: last game data moved forward for ≤ `--mem-hold` 1 s (`memory-held`), then OCR with each word snapped to the most similar game-data word in the same row/side (difflib ≥ 0.7) and game-data zombies OCR can't see kept, for ≤ `--mem-carry` 2 s (`ocr+memory`), then raw OCR |
 | `memory` | memory | off |
 | `ocr` | OCR at 3 Hz | positions are advanced by `speed × age`; player row/facing dead-reckoned from the keys sent; just-typed words are ignored for 0.3 s after their OCR frame |
 

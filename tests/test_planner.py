@@ -125,6 +125,74 @@ class TestSwitchCost(unittest.TestCase):
         self.assertEqual(zb.choose_target([partial, other], P, None, 13.3, KT)["id"], 2)
 
 
+class TestDangerPriority(unittest.TestCase):
+    """User: prioritize zombies closest to the logs / most dangerous."""
+
+    def test_chopping_zombie_first(self):
+        chop = Z(1, "longerword", 0, "L", 0, speed=0)
+        chop["chopping"] = True
+        walker = Z(2, "abc", 2, "R", 30)
+        self.assertEqual(zb.edf_order([walker, chop], P)[0]["id"], 1)
+
+    def test_chopping_always_killable(self):
+        chop = Z(1, "averyveryverylongword", 0, "L", 0)
+        self.assertTrue(zb.killable(chop, P, 13.3, KT))
+
+    def test_closest_to_logs_beats_easier_lane(self):
+        near = Z(1, "abcdef", 0, "L", 60)    # 1 s from the logs, 3 moves away
+        lane = Z(2, "abc", 2, "R", 300)      # in our lane but 5 s away
+        self.assertEqual(zb.choose_target([lane, near], P, None, 13.3, KT)["id"], 1)
+
+    def test_chopping_pulls_bot_off_long_far_word(self):
+        cur = Z(1, "averyveryverylongword", 2, "R", 900, typed=3)
+        chop = Z(2, "go", 1, "R", 0)
+        chop["chopping"] = True
+        self.assertEqual(zb.choose_target([cur, chop], P, 1, 13.3, KT)["id"], 2)
+
+
+class TestGameLock(unittest.TestCase):
+    """User: letters go to the word you start typing."""
+
+    def test_lock_beats_bot_choice_in_lane(self):
+        started = Z(1, "abcdef", 2, "R", 300, typed=2)  # game locked onto this one
+        nearer = Z(2, "xyz", 2, "R", 200)               # same lane, bot wanted it
+        self.assertEqual(zb.choose_target([started, nearer], P, 2, 13.3, KT)["id"], 1)
+
+    def test_game_lock_helper(self):
+        zs = [Z(1, "abc", 2, "R", 100), Z(2, "abc", 2, "R", 200, typed=1), Z(3, "abc", 1, "R", 50, typed=2)]
+        self.assertEqual(zb.game_lock(zs, P)["id"], 2)
+
+
+class TestFusion(unittest.TestCase):
+    """User: game data is more accurate, so it must outrank OCR."""
+
+    def test_ocr_misread_snapped_to_game_word(self):
+        mem = [Z(7, "quarterback", 1, "L", 200)]
+        ocr = [{"id": "quartgrback:1:L", "word": "quartgrback", "typed": 0, "row": 1, "side": "L", "dist": 190.0}]
+        zs, fixes = zb.fuse_ocr_with_memory(ocr, mem)
+        self.assertEqual((zs[0]["word"], zs[0]["id"], zs[0]["dist"], fixes), ("quarterback", 7, 190.0, 1))
+
+    def test_hidden_zombie_kept_from_game_data(self):
+        mem = [Z(1, "front", 0, "L", 50), Z(2, "behind", 0, "L", 70)]   # label of 2 is covered
+        ocr = [{"id": "front:0:L", "word": "front", "typed": 0, "row": 0, "side": "L", "dist": 48.0}]
+        zs, _ = zb.fuse_ocr_with_memory(ocr, mem)
+        self.assertEqual(sorted(z["word"] for z in zs), ["behind", "front"])
+
+    def test_no_snap_across_rows(self):
+        mem = [Z(7, "quarterback", 3, "L", 200)]
+        ocr = [{"id": "quartgrback:1:L", "word": "quartgrback", "typed": 0, "row": 1, "side": "L", "dist": 190.0}]
+        zs, fixes = zb.fuse_ocr_with_memory(ocr, mem)
+        self.assertEqual(fixes, 0)
+        self.assertIn("quartgrback", [z["word"] for z in zs])
+
+    def test_advance_moves_walkers_not_choppers(self):
+        w = Z(1, "a", 0, "L", 100, speed=50)
+        c = Z(2, "b", 0, "L", 0, speed=50)
+        c["chopping"] = True
+        out = zb.advance([w, c], 1.0)
+        self.assertEqual((out[0]["dist"], out[1]["dist"], w["dist"]), (50.0, 0, 100))
+
+
 class TestSpeedChoice(unittest.TestCase):
     def test_base_speed_when_relaxed(self):
         q = zb.edf_order([Z(1, "abc", 2, "R", 600)], P)
@@ -295,6 +363,63 @@ class TestOwnTypedCount(unittest.TestCase):
     def test_other_target_uses_game_count(self):
         b = self.bot((7, 4, 10.0))
         self.assertEqual(b._next_index(Z(8, "zombies", 0, "L", 9, typed=1), 10.1), 1)
+
+
+class TestSourcePriority(unittest.TestCase):
+    """read_state: fresh game data > held game data > OCR snapped to game data > raw OCR."""
+
+    def bot(self, mem_ok, last_mem_age, now=100.0):
+        import types
+        b = zb.Bot.__new__(zb.Bot)
+        b.a = types.SimpleNamespace(mem_hold=1.0, mem_carry=2.0, ocr_confirm=2, verbose=False)
+        mem_state = {"ok": True, "player": {"row": 2, "facing": "R"},
+                     "zombies": [Z(7, "quarterback", 1, "L", 200)]}
+
+        class Mem:
+            def read(self_inner):
+                if not mem_ok:
+                    raise zb.CDPError("probe returned no state")
+                return json.loads(json.dumps(mem_state))
+        b.mem = Mem()
+        ocr_z = {"id": "quartgrback:1:L", "word": "quartgrback", "typed": 0, "row": 1, "side": "L", "dist": 150.0}
+        b.ocr = types.SimpleNamespace(latest=(now - 0.1, {"ok": True, "zombies": [ocr_z]}))
+        b.stats = {"mem_ok": 0, "mem_held": 0, "ocr_fixed": 0, "ocr_agree": []}
+        b.last_ocr_t, b.ocr_seen, b.recent_typed = 0.0, {}, {}
+        b.presumed_dead, b.own = {}, (None, 0, 0.0)
+        b.speed = zb.SpeedTracker(60.0)
+        b.player = {"row": 0, "facing": "L"}
+        b.last_mem = (now - last_mem_age, mem_state) if last_mem_age is not None else None
+        return b
+
+    def test_fresh_memory_wins(self):
+        st = self.bot(True, None).read_state(100.0)
+        self.assertEqual((st["src"], st["zombies"][0]["word"]), ("memory", "quarterback"))
+
+    def test_recent_memory_held_before_ocr(self):
+        b = self.bot(False, 0.5)
+        st = b.read_state(100.0)
+        self.assertEqual(st["src"], "memory-held")
+        self.assertEqual(b.player, {"row": 0, "facing": "L"})  # stale player not applied
+
+    def test_ocr_corrected_by_older_memory(self):
+        st = self.bot(False, 1.5).read_state(100.0)
+        self.assertEqual((st["src"], st["zombies"][0]["word"]), ("ocr+memory", "quarterback"))
+
+    def test_held_state_drops_presumed_dead(self):
+        b = self.bot(False, 0.5)
+        b.presumed_dead = {7: 99.8}
+        self.assertEqual(b.read_state(100.0)["zombies"], [])
+
+    def test_fresh_memory_overrides_presumed_dead(self):
+        b = self.bot(True, None)
+        b.presumed_dead = {7: 99.8}
+        st = b.read_state(100.0)
+        self.assertEqual(len(st["zombies"]), 1)
+        self.assertNotIn(7, b.presumed_dead)
+
+    def test_raw_ocr_needs_confirmation(self):
+        st = self.bot(False, None).read_state(100.0)
+        self.assertEqual((st["src"], st["zombies"]), ("ocr", []))
 
 
 if __name__ == "__main__":

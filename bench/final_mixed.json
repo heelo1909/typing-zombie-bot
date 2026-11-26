@@ -5,14 +5,17 @@
   "seconds": 60.0,
   "spawned": 51,
   "kills": 43,
-  "fence_hits": 3,
-  "kill_ratio": 0.935,
+  "fence_hits": 4,
+  "kill_ratio": 0.915,
+  "stopped_before_logs": 0.913,
+  "hp_lost_to_chopping": 2,
+  "flaky": 0.0,
   "misses": 0,
   "resets": 0,
-  "keys": 514,
+  "keys": 520,
   "powerups": 1,
   "level": 3,
-  "bot_cpu_avg": 5.9,
-  "bot_cpu_max": 33.9,
-  "bot_rss_max_mb": 98.6
+  "bot_cpu_avg": 6.0,
+  "bot_cpu_max": 31.0,
+  "bot_rss_max_mb": 104.9
 }
