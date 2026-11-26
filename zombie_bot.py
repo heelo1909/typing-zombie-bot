@@ -627,6 +627,11 @@ class Bot:
         self.log = None
         if args.log:
             os.makedirs(os.path.dirname(os.path.abspath(args.log)), exist_ok=True)
+            if os.path.exists(args.log) and os.path.getsize(args.log) > 0:
+                # never overwrite an earlier run's log: add the start time
+                root, ext = os.path.splitext(args.log)
+                args.log = "%s-%s%s" % (root, time.strftime("%Y%m%d-%H%M%S"), ext or ".csv")
+            print("logging to %s" % args.log)
             self.log = csv.writer(open(args.log, "w", newline="", buffering=1))  # line-buffered: readable mid-run
             self.log.writerow(["t", "event", "word", "row", "side", "ttf", "cps", "src"])
 

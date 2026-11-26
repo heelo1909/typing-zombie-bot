@@ -1,5 +1,9 @@
 # progress.md
 
+## 2026-11-26: session 4c (34-minute instant run)
+- Instant version, real game, Hard: **5279 kills, level 16**, 2030 s (34 min). 3 automatic reconnects, CPU 6.4 % avg, 113 MB peak. `lane_reversals` 1609 over 5292 targets: many are expected in instant mode (next zombie in the opposite direction), not yet split into real flip-flops.
+- That run's CSV log was overwritten when the user started the next run with the same `--log` path. The bot now never overwrites: an existing log gets a new `-YYYYMMDD-HHMMSS` file, and the path is printed at start.
+
 ## 2026-11-26: session 4b (first instant run on the real game)
 - Normal version, real game (summary of the run before): 323 s, 225 targets, game over at **253 kills, level 6**. `lane_reversals` 33, `stale_player_reads` 205 (the lane fix caught 205 stale reads). CPU 4.9 %, 120 MB.
 - Instant version, real game: started typing ("designing", "annual"), then the typing.com tab disappeared from the bot's Chrome. Its DevTools connection closed and reconnecting looped silently. Cause of the tab loss is unknown; asked the user.
