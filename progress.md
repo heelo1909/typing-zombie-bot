@@ -2,6 +2,7 @@
 
 ## 2026-11-26: session 1e (first run by the user)
 - The user's first run hit "game over" immediately: the mock auto-started on page load and lost its HP before the bot connected. The mock now waits on a "Press Enter to start" screen (`autostart=1` for the old behaviour), and the bot presses Enter when the probe reports `started: false`. The real-game probe should report `started` too.
+- If the bot finds a finished game before it has pressed a key, it reloads the tab once (`reload_if_over` in the profile; on for the mock). The user's open tab still had the old, finished game.
 - `cpu_percent_avg` counted startup work (Vision warm-up) against a ~0 s run, so it showed 60,275 %. It's now measured from the start of play, and is null for runs under 1 s. Verified: 12 s run, 4.4 %.
 
 ## 2026-11-26: session 1d

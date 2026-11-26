@@ -561,6 +561,7 @@ class Bot:
         self.last_mem = None  # (time, last good game-data state)
         self.presumed_dead = {}  # id -> time we sent its last letter
         self.last_start_press = 0.0
+        self.reloaded = False
         self.stats = {"ticks": 0, "mem_ok": 0, "ocr_ok": 0, "ocr_agree": [], "keys": 0,
                       "powerups": 0, "words_started": 0, "reconnects": 0,
                       "mem_held": 0, "ocr_fixed": 0}
@@ -738,6 +739,13 @@ class Bot:
             return
         self.idle_reads = 0
         if st.get("over"):
+            if self.p.get("reload_if_over") and self.stats["keys"] == 0 and not self.reloaded:
+                # found a finished game before playing: reload the tab once
+                self.reloaded = True
+                print("game already over; reloading the game tab")
+                self.page.call("Page.reload", ignoreCache=True)
+                time.sleep(2.0)
+                return
             print("game over detected (reload the game tab to play again)")
             return "stop"
         if st.get("started") is False:  # waiting on a start screen: press Enter
