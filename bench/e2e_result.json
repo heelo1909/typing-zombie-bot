@@ -1,0 +1,21 @@
+{
+  "mode": "mixed",
+  "pace": "hard",
+  "typo": "ignore",
+  "seconds": 1.0,
+  "spawned": 0,
+  "kills": 0,
+  "fence_hits": 0,
+  "kill_ratio": null,
+  "stopped_before_logs": 0.0,
+  "hp_lost_to_chopping": 0,
+  "flaky": 0.0,
+  "misses": 0,
+  "resets": 0,
+  "keys": 1,
+  "powerups": 0,
+  "level": 1,
+  "bot_cpu_avg": 0.0,
+  "bot_cpu_max": 30.4,
+  "bot_rss_max_mb": 98.3
+}

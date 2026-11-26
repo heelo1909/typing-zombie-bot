@@ -1,5 +1,10 @@
 # progress.md
 
+## 2026-11-26: session 1f (speed set to 140 WPM)
+- Default `--wpm` changed from 80 to **140** at the user's request; burst cap `--max-wpm` stays 160.
+- Measured speed was only ~118–124 WPM: each key waited its full delay *plus* the time to read state and send the key, and Chrome sometimes takes 100+ ms to accept a key. Keys now run on a clock (`next_key_at`): processing time comes out of the delay, and keys after a slow one catch up. Measured within words: memory 138 WPM, mixed 140 WPM.
+- 60 s hard-pace mixed run at 140 WPM: 47 kills, **100 % stopped before the logs**, 0 HP lost, 0 wrong keys, CPU 4.1 % avg, 99 MB.
+
 ## 2026-11-26: session 1e (first run by the user)
 - The user's first run hit "game over" immediately: the mock auto-started on page load and lost its HP before the bot connected. The mock now waits on a "Press Enter to start" screen (`autostart=1` for the old behaviour), and the bot presses Enter when the probe reports `started: false`. The real-game probe should report `started` too.
 - If the bot finds a finished game before it has pressed a key, it reloads the tab once (`reload_if_over` in the profile; on for the mock). The user's open tab still had the old, finished game.

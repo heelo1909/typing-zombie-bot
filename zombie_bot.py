@@ -10,7 +10,7 @@ Keys are sent with CDP Input.dispatchKeyEvent, so no macOS Accessibility or
 Screen Recording permission is required.
 
 Chrome must be started with --remote-debugging-port (see launch_chrome.sh).
-Usage:  ./zombie_bot.py --profile profiles/tommyq.json [--wpm 80] [--dry-run]
+Usage:  ./zombie_bot.py --profile profiles/tommyq.json [--wpm 140] [--dry-run]
 """
 import argparse
 import base64
@@ -666,6 +666,17 @@ class Bot:
         return st
 
     def send(self, key, delay):
+        """Press key, then hold until `delay` after the press. Keys run on a
+        clock (next_key_at), so time spent reading state between keys comes
+        out of the delay instead of slowing the WPM."""
+        due = getattr(self, "next_key_at", 0.0)
+        wait = due - time.time()
+        if 0 < wait < 1.0:
+            time.sleep(wait)
+        pressed = time.time()
+        # stay on schedule: after a slow key (Chrome sometimes takes 100+ ms),
+        # the next few keys catch up so the average speed stays at the target
+        base = due if 0 <= pressed - due < 0.15 else pressed
         self.typist.press(key)
         self.stats["keys"] += 1
         if key == "ArrowUp":
@@ -674,7 +685,7 @@ class Bot:
             self.player["row"] = min(self.p.get("rows", 5) - 1, self.player["row"] + 1)
         elif key in ("ArrowLeft", "ArrowRight"):
             self.player["facing"] = key[5]
-        time.sleep(delay)
+        self.next_key_at = base + delay
 
     def run(self):
         a = self.a
@@ -835,8 +846,8 @@ def main(argv=None):
     ap.add_argument("--profile", default=os.path.join(HERE, "profiles", "tommyq.json"))
     ap.add_argument("--port", type=int, default=9222)
     ap.add_argument("--mode", choices=["mixed", "memory", "ocr"], default="mixed")
-    ap.add_argument("--wpm", type=float, default=80)
-    ap.add_argument("--max-wpm", type=float, default=160)
+    ap.add_argument("--wpm", type=float, default=140, help="normal typing speed")
+    ap.add_argument("--max-wpm", type=float, default=160, help="burst speed when a zombie is about to reach the logs")
     ap.add_argument("--hz", type=float, default=20, help="state polls per second")
     ap.add_argument("--ocr-hz", type=float, default=1.0, help="OCR cross-checks per second")
     ap.add_argument("--mem-hold", type=float, default=1.0,

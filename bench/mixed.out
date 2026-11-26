@@ -1,17 +1,18 @@
+starting the game (Enter)
 {
-  "seconds": 60.1,
-  "ticks": 470,
-  "memory_reads": 470,
+  "seconds": 60.0,
+  "ticks": 759,
+  "memory_reads": 759,
   "ocr_reads": 60,
-  "ocr_agreement": 0.607,
-  "keys_sent": 520,
-  "targets": 45,
+  "ocr_agreement": 0.083,
+  "keys_sent": 563,
+  "targets": 46,
   "powerups_used": 1,
   "reconnects": 0,
   "memory_held_ticks": 0,
   "ocr_words_fixed_by_memory": 0,
-  "cpu_percent_avg": 6.5,
-  "peak_rss_mb": 108.9
+  "cpu_percent_avg": 4.1,
+  "peak_rss_mb": 101.8
 }
 
 {
@@ -19,19 +20,19 @@
   "pace": "hard",
   "typo": "ignore",
   "seconds": 60.0,
-  "spawned": 51,
-  "kills": 43,
-  "fence_hits": 4,
-  "kill_ratio": 0.915,
-  "stopped_before_logs": 0.913,
-  "hp_lost_to_chopping": 2,
+  "spawned": 49,
+  "kills": 47,
+  "fence_hits": 0,
+  "kill_ratio": 1.0,
+  "stopped_before_logs": 1.0,
+  "hp_lost_to_chopping": 0,
   "flaky": 0.0,
   "misses": 0,
   "resets": 0,
-  "keys": 520,
+  "keys": 563,
   "powerups": 1,
-  "level": 3,
-  "bot_cpu_avg": 6.0,
-  "bot_cpu_max": 31.0,
-  "bot_rss_max_mb": 104.9
+  "level": 4,
+  "bot_cpu_avg": 4.1,
+  "bot_cpu_max": 32.7,
+  "bot_rss_max_mb": 98.9
 }
