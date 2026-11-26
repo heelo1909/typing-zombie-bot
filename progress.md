@@ -1,5 +1,9 @@
 # progress.md
 
+## 2026-11-26: session 3b (speed-up limit 220 WPM)
+- Default `--max-wpm` raised from 160 to **220** at the user's request (normal speed stays 140 WPM).
+- Mock survival, 10 HP, seed 21, hard: 160 WPM limit → 141 s, 130 kills, level 9. 220 WPM limit → **173 s, 183 kills, level 13** (+41 % kills). CPU 3.4 % in both.
+
 ## 2026-11-26: session 3 (first live run on the real game)
 - Real game, Hard: **106 kills, reached level 4**, ~4 min 13 s. Game data read every tick (3591/3591), CPU 4.9 % avg, 101 MB peak. Bot typed at a steady 140 WPM; almost no zombie reached the logs until the last ~15 s.
 - Lost in the level-4 horde wave. Spawn delay 2650 ms × 0.75³ × 0.65 ≈ 0.73 s per zombie. 7.6-letter words at 140 WPM + moves ≈ 1.3 kills/s, so the bot was at capacity and the right side got swamped.

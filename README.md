@@ -1,6 +1,6 @@
 # Tommy Q zombie bot
 
-A small Python bot for typing.com's **Tommy Q: Zombie Defender**. It reads the game's live state out of Chrome through the DevTools Protocol (the main source), uses on-screen OCR (Apple Vision) only to check and fill gaps, goes after zombies closest to the logs first, moves Tommy to the right row and side, and types the words at a human-like ~140 WPM. It speeds up to 160 WPM only when a zombie would otherwise reach the fence.
+A small Python bot for typing.com's **Tommy Q: Zombie Defender**. It reads the game's live state out of Chrome through the DevTools Protocol (the main source), uses on-screen OCR (Apple Vision) only to check and fill gaps, goes after zombies closest to the logs first, moves Tommy to the right row and side, and types the words at a human-like ~140 WPM. It speeds up to 220 WPM only when a zombie would otherwise reach the fence.
 
 > **Status:** the real game's state reader is built from recon (`probes/tommyq.js`, `profiles/tommyq.json`) and checked against the live page. The first live run on the real game is next. See `plan.md`.
 
@@ -16,7 +16,7 @@ python3 -m venv .venv
 # log into typing.com in that window, open Tommy Q, pick Hard, click PLAY, keep the tab in front
 .venv/bin/python zombie_bot.py          # waits on menus; after game over waits for the next round
 ```
-Flags: `--mode mixed|memory|ocr` (default mixed), `--wpm 140`, `--max-wpm 160`, `--dry-run`, `--seconds N`, `--log bench/run_log.csv`, `--ocr-fast`, `-v`. Stop with Ctrl+C.
+Flags: `--mode mixed|memory|ocr` (default mixed), `--wpm 140`, `--max-wpm 220`, `--dry-run`, `--seconds N`, `--log bench/run_log.csv`, `--ocr-fast`, `-v`. Stop with Ctrl+C.
 
 ## Recon (first time on the live game)
 ```bash

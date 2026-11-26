@@ -13,7 +13,7 @@ The user wants a hands-off player that is accurate and cheap to run on an M4 Mac
 | R2 | Also reads the screen with OCR (Apple Vision) and mixes the two, **game data always outranking OCR**: fresh game data > last game data moved forward (≤ 1 s) > OCR with words snapped to game-data spellings and hidden zombies kept > raw OCR | `TestSourcePriority`, `TestFusion`, flaky-memory e2e run |
 | R3a | Targets **closest to the logs / most dangerous** first: zombies chopping the logs, then smallest time-to-logs; always finishes the word the game has locked in Tommy's lane unless switching saves more zombies | `TestDangerPriority`, `TestGameLock`, `TestSwitchCost` |
 | R3 | Moves Tommy (Up/Down rows, Left/Right facing) and types whole words; uses power-ups with Enter | unit tests + e2e |
-| R4 | Human-like typing at ~140 WPM (user set, was 80) with jitter, bursting up to `--max-wpm` (160) only when a zombie would otherwise reach the fence | unit tests (`choose_cps`, `key_delay`) |
+| R4 | Human-like typing at ~140 WPM (user set, was 80) with jitter, bursting up to `--max-wpm` (220, user set; was 160) only when a zombie would otherwise reach the fence | unit tests (`choose_cps`, `key_delay`) |
 | R5 | Bot process < 2 GB RAM | e2e `bot_rss_max_mb` |
 | R6 | Bot process ≤ 20 % CPU on average | e2e `bot_cpu_avg` |
 | R7 | ≥ 90 % of zombies killed before the fence on hardest mode | e2e `kill_ratio` (mock now, real game after recon) |

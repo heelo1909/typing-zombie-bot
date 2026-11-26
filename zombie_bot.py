@@ -926,7 +926,7 @@ def main(argv=None):
     ap.add_argument("--port", type=int, default=9222)
     ap.add_argument("--mode", choices=["mixed", "memory", "ocr"], default="mixed")
     ap.add_argument("--wpm", type=float, default=140, help="normal typing speed")
-    ap.add_argument("--max-wpm", type=float, default=160, help="burst speed when a zombie is about to reach the logs")
+    ap.add_argument("--max-wpm", type=float, default=220, help="burst speed when a zombie is about to reach the logs")
     ap.add_argument("--hz", type=float, default=20, help="state polls per second")
     ap.add_argument("--ocr-hz", type=float, default=0.33,
                     help="OCR cross-checks per second while game data works")
