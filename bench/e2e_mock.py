@@ -52,12 +52,14 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--hp", type=int, default=1000, help="high HP so the run lasts --seconds")
     ap.add_argument("--flaky", type=float, default=0.0, help="chance a game-data read fails")
+    ap.add_argument("--lag", type=int, default=0, help="ms the mock waits before handling each key")
     ap.add_argument("--extra", default="", help="extra args for zombie_bot.py")
     ap.add_argument("--out", default=os.path.join(ROOT, "bench", "e2e_result.json"))
     a = ap.parse_args()
 
     url = "file://%s/mock/tommyq_mock.html?seed=%d&pace=%s&typo=%s&hp=%d&flaky=%s" % (
         ROOT, a.seed, a.pace, a.typo, a.hp, a.flaky)
+    url += "&lag=%d" % a.lag
     if a.mode == "ocr":  # no game data to see the start screen, so auto-start
         url += "&autostart=1"
     cdp = mock_page(a.port, url)

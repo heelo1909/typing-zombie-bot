@@ -33,15 +33,17 @@ if (gs.powerUpObject && !gs.powerUpInUse) {
   held = {icePowerUp: 'ice', bombPowerUp: 'bomb', bookPowerUp: 'book'}[gs.powerUpObject.name] || null;
 }
 var zs = [];
-gs.typableObjects.forEach(function (o, idx) {
+gs.typableObjects.forEach(function (o) {
   if (!o.active || !o.word || o.highlightIndex >= o.word.length) return;
+  // stable id per object (list positions shift whenever anything dies)
+  if (!o.__zbId) o.__zbId = (window.__zbSeq = (window.__zbSeq || 0) + 1);
   var isZ = o.name === 'zombie';
   if (isZ && o.isAlive && !o.isAlive()) return;
   var side = o.laneNumber < 0 ? 'L' : 'R';
   var x = o.objectContainer.x;
   var chopping = isZ && o.state !== undefined && o.isAttacking ? (o.isAttacking() || (o.frozen && (side === 'L' ? x >= STOP_L : x <= STOP_R))) : false;
   zs.push({
-    id: isZ ? 'z' + idx + ':' + o.word : 'p:' + o.word,
+    id: (isZ ? 'z' : 'p') + o.__zbId,
     kind: isZ ? 'zombie' : 'powerup',
     powerup: isZ ? null : ({icePowerUp: 'ice', bombPowerUp: 'bomb', bookPowerUp: 'book'}[o.name] || o.name),
     word: o.word,

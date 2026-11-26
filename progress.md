@@ -1,5 +1,13 @@
 # progress.md
 
+## 2026-11-26: session 3c (lanes flipping back and forth)
+- User report: the bot sometimes alternated between lanes very fast and stalled.
+- Cause: since keys run on a clock (140 WPM change), the bot reads the game right after pressing an arrow. When Chrome applies the key late, the read still shows the old lane, so the bot pressed again, overshot and bounced back. Reproduced with a key-lag option in the mock (`lag=ms`).
+- Fix: for `MOVE_TRUST_S` = 0.35 s after a move, a read that disagrees with the bot's own position is treated as stale (`stale_player_reads`). Also gave real-game objects stable ids (`__zbId`); list positions shift whenever anything dies.
+- Mock, 45 s, key lag 40 ms: old 411 arrows / **198 reversals** / 7 kills → new 74 arrows / **3 reversals** / 34 kills. At 80 ms: 152 → 1 reversals, 5 → 34 kills.
+- A planner-only simulation (3000 random games incl. power-up words and knock-back) showed the targeting itself almost never reverses (23 single reversals), so the timing bug was the cause.
+- Summary now reports `lane_reversals` and `stale_player_reads`. Tests **81 / 81**.
+
 ## 2026-11-26: session 3b (speed-up limit 220 WPM)
 - Default `--max-wpm` raised from 160 to **220** at the user's request (normal speed stays 140 WPM).
 - Mock survival, 10 HP, seed 21, hard: 160 WPM limit → 141 s, 130 kills, level 9. 220 WPM limit → **173 s, 183 kills, level 13** (+41 % kills). CPU 3.4 % in both.

@@ -97,6 +97,7 @@ def remaining(z):
     return max(0, len(z["word"]) - int(z.get("typed", 0)))
 
 
+MOVE_TRUST_S = 0.35  # s to trust our own arrow presses over a lagging game read
 CHOP_GRACE = 0.75  # s: deadline used for a zombie already chopping the logs
 
 
@@ -613,13 +614,14 @@ class Bot:
         self.last_mem = None  # (time, last good game-data state)
         self.presumed_dead = {}  # id -> time we sent its last letter
         self.last_start_press = 0.0
+        self.last_move, self.last_move_t = None, 0.0
         self.reloaded = False
         self.waiting_msg = None
         self.over_reported = False
         self.games = 0
         self.stats = {"ticks": 0, "mem_ok": 0, "ocr_ok": 0, "ocr_agree": [], "keys": 0,
                       "powerups": 0, "words_started": 0, "reconnects": 0,
-                      "mem_held": 0, "ocr_fixed": 0}
+                      "mem_held": 0, "ocr_fixed": 0, "reversals": 0, "stale_player_reads": 0}
         self.log = None
         if args.log:
             os.makedirs(os.path.dirname(os.path.abspath(args.log)), exist_ok=True)
@@ -719,7 +721,14 @@ class Bot:
         if st is None:
             return None
         if st.get("player") and st["src"] == "memory":  # held state's player is stale
-            self.player = {"row": st["player"]["row"], "facing": st["player"]["facing"]}
+            game_p = {"row": st["player"]["row"], "facing": st["player"]["facing"]}
+            # Chrome can apply arrow keys late. Right after we moved, a read that
+            # still shows the old lane is stale: trust our own position, or the
+            # bot sends the arrows again, overshoots and bounces between lanes.
+            if game_p == self.player or now - self.last_move_t > MOVE_TRUST_S:
+                self.player = game_p
+            else:
+                self.stats["stale_player_reads"] += 1
         self.speed.update(st["zombies"], now)
         return st
 
@@ -737,6 +746,13 @@ class Bot:
         base = due if 0 <= pressed - due < 0.15 else pressed
         self.typist.press(key)
         self.stats["keys"] += 1
+        if key.startswith("Arrow"):
+            # a reversal = undoing the previous move within 1 s (wasted time)
+            undo = {"ArrowUp": "ArrowDown", "ArrowDown": "ArrowUp",
+                    "ArrowLeft": "ArrowRight", "ArrowRight": "ArrowLeft"}[key]
+            if self.last_move == undo and pressed - self.last_move_t < 1.0:
+                self.stats["reversals"] += 1
+            self.last_move, self.last_move_t = key, pressed
         if key == "ArrowUp":
             self.player["row"] = max(0, self.player["row"] - 1)
         elif key == "ArrowDown":
@@ -903,6 +919,7 @@ class Bot:
             "keys_sent": self.stats["keys"], "targets": self.stats["words_started"],
             "powerups_used": self.stats["powerups"], "reconnects": self.stats["reconnects"],
             "memory_held_ticks": self.stats["mem_held"], "ocr_words_fixed_by_memory": self.stats["ocr_fixed"],
+            "lane_reversals": self.stats["reversals"], "stale_player_reads": self.stats["stale_player_reads"],
             "cpu_percent_avg": round(100.0 * cpu / wall, 1) if wall >= 1.0 else None,
             "peak_rss_mb": round(rss_mb, 1),
         }

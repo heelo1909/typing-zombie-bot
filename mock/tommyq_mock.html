@@ -78,7 +78,15 @@ function usePowerup(){
   if (p === 'book') game.zombies.forEach(function(z){ if (z.alive && z.row === game.player.row) kill(z); });
   if (p === 'ice') game.frozen = 10;
 }
+// lag=ms: handle keys late, like a busy real page, to test the bot against stale reads
+var LAG = parseInt(Q.get('lag') || '0', 10);
 document.addEventListener('keydown', function(e){
+  if (!LAG) return onKey(e);
+  e.preventDefault();
+  var k = {key: e.key, preventDefault: function(){}};
+  setTimeout(function(){ onKey(k); }, LAG);
+});
+function onKey(e){
   if (game.over) return;
   game.stats.keys++;
   var p = game.player;
@@ -106,7 +114,7 @@ document.addEventListener('keydown', function(e){
     game.stats.misses++;
     if (TYPO === 'reset') z.typed = 0;
   }
-});
+}
 
 function step(dt){
   if (!game.started || game.over) return;

@@ -445,6 +445,8 @@ class TestSourcePriority(unittest.TestCase):
         b.stats = {"mem_ok": 0, "mem_held": 0, "ocr_fixed": 0, "ocr_agree": []}
         b.last_ocr_t, b.ocr_seen, b.recent_typed = 0.0, {}, {}
         b.presumed_dead, b.own = {}, (None, 0, 0.0)
+        b.last_move, b.last_move_t = None, 0.0
+        b.stats.update(reversals=0, stale_player_reads=0)
         b.speed = zb.SpeedTracker(60.0)
         b.player = {"row": 0, "facing": "L"}
         b.last_mem = (now - last_mem_age, mem_state) if last_mem_age is not None else None
@@ -479,6 +481,54 @@ class TestSourcePriority(unittest.TestCase):
     def test_raw_ocr_needs_confirmation(self):
         st = self.bot(False, None).read_state(100.0)
         self.assertEqual((st["src"], st["zombies"]), ("ocr", []))
+
+
+class TestNoLaneThrash(unittest.TestCase):
+    """User: the bot sometimes flipped between lanes very fast, wasting time."""
+
+    def make(self, game_row, moved_ago, now=100.0):
+        import types
+        b = TestSourcePriority().bot(True, None, now)
+        state = {"ok": True, "player": {"row": game_row, "facing": "R"}, "zombies": []}
+        b.mem = types.SimpleNamespace(read=lambda: json.loads(json.dumps(state)))
+        b.ocr = None
+        b.player = {"row": 2, "facing": "R"}   # we just pressed Down from row 1
+        b.last_move, b.last_move_t = "ArrowDown", now - moved_ago
+        return b
+
+    def test_stale_read_right_after_move_ignored(self):
+        b = self.make(game_row=1, moved_ago=0.1)
+        b.read_state(100.0)
+        self.assertEqual(b.player["row"], 2)
+        self.assertEqual(b.stats["stale_player_reads"], 1)
+
+    def test_game_wins_after_trust_window(self):
+        b = self.make(game_row=1, moved_ago=1.0)
+        b.read_state(100.0)
+        self.assertEqual(b.player["row"], 1)
+
+    def test_matching_read_accepted(self):
+        b = self.make(game_row=2, moved_ago=0.1)
+        b.read_state(100.0)
+        self.assertEqual((b.player["row"], b.stats["stale_player_reads"]), (2, 0))
+
+    def test_reversal_counted(self):
+        b = zb.Bot.__new__(zb.Bot)
+        b.typist = zb.Typist(None, dry_run=True)
+        b.p = {"rows": 5}
+        b.player = {"row": 2, "facing": "R"}
+        b.stats = {"keys": 0, "reversals": 0}
+        b.last_move, b.last_move_t, b.next_key_at = None, 0.0, 0.0
+        for k in ("ArrowDown", "ArrowUp", "ArrowUp"):
+            b.send(k, 0.0)
+        self.assertEqual(b.stats["reversals"], 1)
+        self.assertEqual(b.player["row"], 1)
+
+    def test_ids_stable_in_real_probe(self):
+        with open(os.path.join(ROOT, "probes", "tommyq.js")) as f:
+            src = f.read()
+        self.assertIn("__zbId", src)
+        self.assertNotIn("'z' + idx", src)
 
 
 if __name__ == "__main__":
