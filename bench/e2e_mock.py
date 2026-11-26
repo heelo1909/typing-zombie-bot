@@ -28,6 +28,7 @@ def mock_page(port, url):
         t = json.loads(urllib.request.urlopen(req, timeout=5).read().decode())
         time.sleep(1)
     cdp = CDP(t["webSocketDebuggerUrl"])
+    cdp.call("Page.bringToFront")  # background tabs pause the game loop
     cdp.call("Page.navigate", url=url)
     time.sleep(1.0)
     return cdp
@@ -57,6 +58,8 @@ def main():
 
     url = "file://%s/mock/tommyq_mock.html?seed=%d&pace=%s&typo=%s&hp=%d&flaky=%s" % (
         ROOT, a.seed, a.pace, a.typo, a.hp, a.flaky)
+    if a.mode == "ocr":  # no game data to see the start screen, so auto-start
+        url += "&autostart=1"
     cdp = mock_page(a.port, url)
     cmd = [sys.executable, os.path.join(ROOT, "zombie_bot.py"), "--profile",
            os.path.join(ROOT, "profiles", "mock.json"), "--port", str(a.port),

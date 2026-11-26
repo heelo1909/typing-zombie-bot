@@ -3,7 +3,7 @@
   "pace": "hard",
   "typo": "ignore",
   "seconds": 60.0,
-  "spawned": 49,
+  "spawned": 48,
   "kills": 47,
   "fence_hits": 0,
   "kill_ratio": 1.0,
@@ -12,10 +12,10 @@
   "flaky": 0.0,
   "misses": 0,
   "resets": 0,
-  "keys": 563,
+  "keys": 564,
   "powerups": 1,
   "level": 4,
-  "bot_cpu_avg": 4.1,
-  "bot_cpu_max": 32.7,
-  "bot_rss_max_mb": 98.9
+  "bot_cpu_avg": 3.1,
+  "bot_cpu_max": 36.5,
+  "bot_rss_max_mb": 99.7
 }

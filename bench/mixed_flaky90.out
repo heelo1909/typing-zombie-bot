@@ -1,17 +1,18 @@
+starting the game (Enter)
 {
   "seconds": 60.1,
-  "ticks": 295,
-  "memory_reads": 34,
-  "ocr_reads": 60,
-  "ocr_agreement": 0.635,
-  "keys_sent": 425,
-  "targets": 39,
-  "powerups_used": 11,
+  "ticks": 648,
+  "memory_reads": 68,
+  "ocr_reads": 59,
+  "ocr_agreement": 0.625,
+  "keys_sent": 571,
+  "targets": 50,
+  "powerups_used": 20,
   "reconnects": 0,
-  "memory_held_ticks": 182,
-  "ocr_words_fixed_by_memory": 9,
-  "cpu_percent_avg": 6.5,
-  "peak_rss_mb": 105.9
+  "memory_held_ticks": 435,
+  "ocr_words_fixed_by_memory": 8,
+  "cpu_percent_avg": 6.0,
+  "peak_rss_mb": 101.4
 }
 
 {
@@ -19,19 +20,19 @@
   "pace": "hard",
   "typo": "ignore",
   "seconds": 60.0,
-  "spawned": 51,
+  "spawned": 48,
   "kills": 46,
   "fence_hits": 0,
   "kill_ratio": 1.0,
   "stopped_before_logs": 1.0,
   "hp_lost_to_chopping": 0,
   "flaky": 0.9,
-  "misses": 7,
-  "resets": 1,
-  "keys": 425,
-  "powerups": 4,
+  "misses": 35,
+  "resets": 0,
+  "keys": 571,
+  "powerups": 3,
   "level": 4,
   "bot_cpu_avg": 6.1,
-  "bot_cpu_max": 32.6,
-  "bot_rss_max_mb": 101.9
+  "bot_cpu_max": 33.7,
+  "bot_rss_max_mb": 99.2
 }

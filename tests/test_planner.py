@@ -193,6 +193,42 @@ class TestFusion(unittest.TestCase):
         self.assertEqual((out[0]["dist"], out[1]["dist"], w["dist"]), (50.0, 0, 100))
 
 
+def PU(id, word, row, side):
+    return {"id": id, "kind": "powerup", "powerup": "bomb", "word": word, "typed": 0,
+            "row": row, "side": side, "dist": 1e6, "speed": 0}
+
+
+class TestPowerupPickup(unittest.TestCase):
+    """Real game: power-ups are words in a lane; typing one collects it."""
+
+    def test_pickup_when_calm(self):
+        zs = [Z(1, "abc", 0, "L", 380, speed=30), PU("p", "bonus", 2, "R")]
+        self.assertEqual(zb.choose_target(zs, P, None, 13.3, KT)["id"], "p")
+
+    def test_no_pickup_when_zombie_urgent(self):
+        zs = [Z(1, "abcdefgh", 0, "L", 30, speed=30), PU("p", "bonus", 2, "R")]
+        self.assertEqual(zb.choose_target(zs, P, None, 13.3, KT)["id"], 1)
+
+    def test_no_pickup_when_chopping(self):
+        chop = Z(1, "abc", 4, "L", 0)
+        chop["chopping"] = True
+        zs = [chop, PU("p", "bonus", 2, "R")]
+        self.assertEqual(zb.choose_target(zs, P, None, 13.3, KT)["id"], 1)
+
+    def test_finish_started_pickup(self):
+        p = PU("p", "bonus", 2, "R")
+        p["typed"] = 2
+        zs = [Z(1, "abc", 0, "L", 60, speed=30), p]
+        self.assertEqual(zb.choose_target(zs, P, None, 13.3, KT)["id"], "p")
+
+    def test_pickup_only(self):
+        self.assertEqual(zb.choose_target([PU("p", "bonus", 0, "L")], P, None, 13.3, KT)["id"], "p")
+
+    def test_pickups_not_counted_for_powerup_use(self):
+        st = {"powerup": "bomb", "zombies": [PU("a", "x", 0, "L"), PU("b", "y", 1, "L"), PU("c", "z", 2, "L")]}
+        self.assertFalse(zb.choose_powerup(st, P, 13.3, KT))
+
+
 class TestSpeedChoice(unittest.TestCase):
     def test_base_speed_when_relaxed(self):
         q = zb.edf_order([Z(1, "abc", 2, "R", 600)], P)
@@ -229,8 +265,13 @@ class TestPowerups(unittest.TestCase):
         self.assertFalse(zb.choose_powerup(st, P, 13.3, KT))
 
     def test_book_two_in_row(self):
-        st = {"powerup": "book", "zombies": [Z(1, "abc", 2, "R", 300), Z(2, "abc", 2, "L", 300)]}
+        st = {"powerup": "book", "zombies": [Z(1, "abc", 2, "R", 300), Z(2, "abc", 2, "R", 350)]}
         self.assertTrue(zb.choose_powerup(st, P, 13.3, KT))
+
+    def test_book_ignores_other_side(self):
+        # real game: the book only clears Tommy's row on the side he faces
+        st = {"powerup": "book", "zombies": [Z(1, "abc", 2, "R", 300), Z(2, "abc", 2, "L", 300)]}
+        self.assertFalse(zb.choose_powerup(st, P, 13.3, KT))
 
     def test_ice_when_doomed(self):
         st = {"powerup": "ice", "zombies": [Z(1, "abcdefghijklmnop", 0, "L", 20)]}
@@ -299,9 +340,10 @@ class TestProfiles(unittest.TestCase):
                 self.assertIn(k, p)
             self.assertEqual(p["rows"], len(p["rows_y"]))
 
-    def test_real_profile_flagged_until_recon(self):
+    def test_real_profile_filled_from_recon(self):
         p = zb.load_profile(os.path.join(ROOT, "profiles", "tommyq.json"))
-        self.assertTrue(p.get("needs_recon"))
+        self.assertFalse(p.get("needs_recon"))
+        self.assertEqual(p["rows_y"], [155, 215, 275, 335, 395])
 
     def test_probe_fixture_shape(self):
         with open(os.path.join(ROOT, "tests", "fixtures", "mock_state.json")) as f:

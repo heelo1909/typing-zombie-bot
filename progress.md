@@ -1,5 +1,25 @@
 # progress.md
 
+## 2026-11-26: session 2 (recon on the real game, done from the work Mac)
+- The user ran `recon.py` on the live game. Found Phaser 3.10.1 on a 916×400 WebGL canvas in the page. Read the game's objects and code read-only over CDP; full findings in `docs/game_notes.md`.
+- Wrote `probes/tommyq.js` (zombies + power-up words, rows, sides, distance to the chop line, speed from fps, letters typed, held power-up, log health, game over) and filled `profiles/tommyq.json` (`needs_recon: false`). Verified the probe on the live page.
+- Planner: power-ups are words to collect (`pickup_if_safe`: only when the most dangerous zombie keeps ≥ 1.5 s spare). The book now matches the real rule (Tommy's row, facing side only).
+- Real-game behaviour:
+  - Waits quietly while the game is on a menu (no OCR typing of menu text).
+  - After game over it waits for the next round instead of exiting.
+  - No focus click, which could hit a menu button.
+- OCR CPU: a dry run on the real page showed 42.9 % CPU. The Retina PNG screenshot cost ~0.45 s CPU per read. Now JPEG q100 at CSS resolution (~0.10 s/read), and the OCR rate adapts: every 3 s as a cross-check while game data works, 1.5/s only when it fails. Real page dry run: 3.8 % CPU.
+- Benchmark fix: the mock tab is brought to the front (background tabs pause the game loop), and OCR-only runs auto-start the mock.
+- Tests: **72 / 72 pass**.
+
+| mock, hard, 60 s, seed 21 | kills / spawned | stopped before logs | HP lost | bot CPU avg | RSS |
+|---|---|---|---|---|---|
+| mixed (default) | 47 / 48 | **100 %** | 0 | **3.1 %** | 100 MB |
+| mixed, 90 % game-data reads failing | 46 / 48 | **100 %** | 0 | 6.1 % | 99 MB |
+| ocr only | 46 / 50 | **97.9 %** ✅ | 0 | 8.6 % | 103 MB |
+
+Not done yet: a live run on the real game (needs the user to click PLAY).
+
 ## 2026-11-26: session 1f (speed set to 140 WPM)
 - Default `--wpm` changed from 80 to **140** at the user's request; burst cap `--max-wpm` stays 160.
 - Measured speed was only ~118–124 WPM: each key waited its full delay *plus* the time to read state and send the key, and Chrome sometimes takes 100+ ms to accept a key. Keys now run on a clock (`next_key_at`): processing time comes out of the delay, and keys after a slow one catch up. Measured within words: memory 138 WPM, mixed 140 WPM.

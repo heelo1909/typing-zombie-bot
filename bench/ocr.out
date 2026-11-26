@@ -1,17 +1,17 @@
 {
-  "seconds": 84.4,
-  "ticks": 87,
+  "seconds": 60.1,
+  "ticks": 316,
   "memory_reads": 0,
-  "ocr_reads": 133,
+  "ocr_reads": 90,
   "ocr_agreement": null,
-  "keys_sent": 393,
-  "targets": 33,
+  "keys_sent": 568,
+  "targets": 49,
   "powerups_used": 0,
   "reconnects": 0,
   "memory_held_ticks": 0,
   "ocr_words_fixed_by_memory": 0,
-  "cpu_percent_avg": 7.5,
-  "peak_rss_mb": 104.7
+  "cpu_percent_avg": 8.6,
+  "peak_rss_mb": 103.1
 }
 
 {
@@ -19,19 +19,19 @@
   "pace": "hard",
   "typo": "ignore",
   "seconds": 60.0,
-  "spawned": 37,
-  "kills": 32,
-  "fence_hits": 6,
-  "kill_ratio": 0.842,
-  "stopped_before_logs": 0.812,
-  "hp_lost_to_chopping": 4,
+  "spawned": 50,
+  "kills": 46,
+  "fence_hits": 1,
+  "kill_ratio": 0.979,
+  "stopped_before_logs": 0.979,
+  "hp_lost_to_chopping": 0,
   "flaky": 0.0,
   "misses": 0,
-  "resets": 1,
-  "keys": 393,
+  "resets": 2,
+  "keys": 568,
   "powerups": 0,
-  "level": 3,
-  "bot_cpu_avg": 13.0,
-  "bot_cpu_max": 34.5,
-  "bot_rss_max_mb": 100.7
+  "level": 4,
+  "bot_cpu_avg": 8.6,
+  "bot_cpu_max": 35.6,
+  "bot_rss_max_mb": 102.6
 }

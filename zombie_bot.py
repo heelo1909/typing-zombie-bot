@@ -131,9 +131,14 @@ def danger_key(z, player):
     return (not at_logs(z), time_to_fence(z), moves(z, player), remaining(z))
 
 
+def is_powerup(z):
+    return z.get("kind") == "powerup"
+
+
 def edf_order(zombies, player):
-    """Most dangerous first (see danger_key); finished words dropped."""
-    live = [z for z in zombies if remaining(z) > 0]
+    """Most dangerous first (see danger_key); finished words and power-up
+    pickups dropped (pickups are chosen separately in choose_target)."""
+    live = [z for z in zombies if remaining(z) > 0 and not is_powerup(z)]
     return sorted(live, key=lambda z: danger_key(z, player))
 
 
@@ -193,8 +198,12 @@ def choose_target(zombies, player, current_id, max_cps, key_time):
     logs, then closest to the logs), skipping walkers that can't be reached in
     time even at max speed (unless none can)."""
     queue = edf_order(zombies, player)
+    pickup = [z for z in zombies if is_powerup(z) and remaining(z) > 0]
+    lock = game_lock(zombies, player)
+    if lock is not None and is_powerup(lock):
+        return lock  # already typing a power-up word: finish it
     if not queue:
-        return None
+        return pickup_if_safe(pickup, queue, player, max_cps, key_time) if pickup else None
     cur = game_lock(queue, player)
     if cur is None:
         cur = next((z for z in queue if z["id"] == current_id), None)
@@ -205,10 +214,32 @@ def choose_target(zombies, player, current_id, max_cps, key_time):
             if killable(o, player, max_cps, key_time) and switch_pays_off(cur, o, player, max_cps, key_time):
                 return o
         return cur
+    p = pickup_if_safe(pickup, queue, player, max_cps, key_time)
+    if p is not None:
+        return p
     for z in queue:
         if killable(z, player, max_cps, key_time):
             return z
     return queue[0]
+
+
+PICKUP_MARGIN = 1.5  # s of spare time the most urgent zombie must still have
+
+
+def pickup_if_safe(pickups, queue, player, cps, key_time, held=None):
+    """Collect a power-up (type its word) only when the most dangerous zombie
+    can still be killed with PICKUP_MARGIN s to spare afterwards."""
+    if not pickups:
+        return None
+    p = min(pickups, key=lambda z: (moves(z, player), remaining(z)))
+    t_p = moves(p, player) * key_time + remaining(p) / cps
+    after = {"row": p["row"], "facing": p["side"]}
+    for z in queue[:2]:
+        t = t_p + moves(z, after) * key_time + remaining(z) / cps
+        if at_logs(z) or t + PICKUP_MARGIN >= deadline(z):
+            return None
+        t_p, after = t, {"row": z["row"], "facing": z["side"]}
+    return p
 
 
 def movement_keys(z, player):
@@ -225,16 +256,16 @@ def choose_powerup(state, player, cps, key_time):
     p = state.get("powerup")
     if not p:
         return False
-    zs = [z for z in state["zombies"] if remaining(z) > 0]
+    zs = [z for z in state["zombies"] if remaining(z) > 0 and not is_powerup(z)]
     if not zs:
         return False
     doomed = [z for z in zs if not killable(z, player, cps, key_time)]
     if p == "bomb":
         near = [z for z in zs if deadline(z) < 3.0]
         return len(near) >= 3 or bool(doomed)
-    if p == "book":
-        return sum(1 for z in zs if z["row"] == player["row"]) >= 2 or \
-            any(z["row"] == player["row"] for z in doomed)
+    if p == "book":  # kills every zombie in Tommy's row on the side he faces
+        lane = [z for z in zs if z["row"] == player["row"] and z["side"] == player["facing"]]
+        return len(lane) >= 2 or any(at_logs(z) for z in lane) or any(z in doomed for z in lane)
     if p == "ice":
         return bool(doomed) or sum(1 for z in zs if at_logs(z)) >= 2
     return bool(doomed)
@@ -323,6 +354,10 @@ class MemoryReader:
         if "exceptionDetails" in r:
             raise CDPError("probe error: %s" % r["exceptionDetails"].get("text"))
         v = r["result"].get("value")
+        if v and not v.get("ok") and v.get("reason"):
+            # the probe ran fine but the game isn't in play (menu, page loading):
+            # that's "waiting", not a failed read, so OCR must not take over
+            return {"ok": True, "waiting": v["reason"], "zombies": []}
         if not v or not v.get("ok"):
             raise CDPError("probe returned no state")
         return v
@@ -402,8 +437,15 @@ class OcrReader:
         clip = self._clip()
         if not clip:
             raise CDPError("game canvas not found for OCR")
-        shot = self.cdp.call("Page.captureScreenshot", format="png", clip=dict(
-            x=clip["x"], y=clip["y"], width=clip["w"], height=clip["h"], scale=1))
+        if not getattr(self, "scale", None):  # capture at CSS pixels, not Retina
+            dpr = self.cdp.call("Runtime.evaluate", expression="devicePixelRatio",
+                                returnByValue=True)["result"].get("value") or 1
+            self.scale = 1.0 / max(1.0, float(dpr))
+        # JPEG q100 at CSS resolution. Measured on the real page: ~0.10 s CPU per
+        # read (Retina PNG ~0.45 s); on the mock q100 kept 89 % word accuracy
+        # vs 92 % for PNG, while q85 dropped to 79 %.
+        shot = self.cdp.call("Page.captureScreenshot", format="jpeg", quality=100, clip=dict(
+            x=clip["x"], y=clip["y"], width=clip["w"], height=clip["h"], scale=self.scale))
         items = self.recognize(base64.b64decode(shot["data"]))
         p = self.p
         sx = clip["w"] / p["game_w"]
@@ -459,9 +501,11 @@ def fuse_ocr_with_memory(ocr_zs, mem_zs, min_ratio=0.7):
 class OcrWorker(threading.Thread):
     """Runs OCR on its own CDP connection so the typing loop never waits."""
 
-    def __init__(self, ws_url, profile, hz, fast=False):
+    def __init__(self, ws_url, profile, hz, fast=False, fallback_hz=None):
         super().__init__(daemon=True)
         self.reader = OcrReader(CDP(ws_url, timeout=10), profile, fast=fast)
+        self.hz, self.fallback_hz = hz, fallback_hz or hz
+        self.needed = False  # set by the bot when game data isn't available
         self.period = 1.0 / hz
         self.latest = None  # (capture_time, state)
         self.reads = 0
@@ -479,6 +523,8 @@ class OcrWorker(threading.Thread):
             except Exception as e:  # keep going; main loop falls back
                 self.error = str(e)
             self.ready.set()
+            # slow cross-checks while game data works; faster when OCR is needed
+            self.period = 1.0 / (self.fallback_hz if self.needed else self.hz)
             self._stop.wait(max(0.0, self.period - (time.time() - t)))
 
     def stop(self):
@@ -543,8 +589,9 @@ class Bot:
         self.ocr = None
         if args.mode in ("mixed", "ocr"):
             try:
-                hz = args.ocr_hz if args.mode == "mixed" else max(args.ocr_hz, 3.0)
-                self.ocr = OcrWorker(page["webSocketDebuggerUrl"], profile, hz, fast=args.ocr_fast)
+                hz = args.ocr_hz if args.mode == "mixed" else args.ocr_fallback_hz
+                self.ocr = OcrWorker(page["webSocketDebuggerUrl"], profile, hz, fast=args.ocr_fast,
+                                     fallback_hz=args.ocr_fallback_hz)
             except ImportError:
                 print("[warn] pyobjc Vision not installed; OCR disabled", file=sys.stderr)
         self.speed = SpeedTracker(profile.get("default_speed", 60.0))
@@ -562,6 +609,9 @@ class Bot:
         self.presumed_dead = {}  # id -> time we sent its last letter
         self.last_start_press = 0.0
         self.reloaded = False
+        self.waiting_msg = None
+        self.over_reported = False
+        self.games = 0
         self.stats = {"ticks": 0, "mem_ok": 0, "ocr_ok": 0, "ocr_agree": [], "keys": 0,
                       "powerups": 0, "words_started": 0, "reconnects": 0,
                       "mem_held": 0, "ocr_fixed": 0}
@@ -594,7 +644,8 @@ class Bot:
                 self.page_ws = self._connect()["webSocketDebuggerUrl"]
                 if self.ocr:  # OCR thread keeps its own connection; restart it
                     self.ocr.stop()
-                    self.ocr = OcrWorker(self.page_ws, self.p, 1.0 / self.ocr.period, fast=self.a.ocr_fast)
+                    self.ocr = OcrWorker(self.page_ws, self.p, self.ocr.hz, fast=self.a.ocr_fast,
+                                         fallback_hz=self.ocr.fallback_hz)
                     self.ocr.start()
                 self.stats["reconnects"] += 1
                 return True
@@ -622,6 +673,8 @@ class Bot:
             self.presumed_dead = {i: t for i, t in self.presumed_dead.items()
                                   if i not in alive and now - t < 3}
         mem_age = now - self.last_mem[0] if self.last_mem else INF
+        if self.ocr:
+            self.ocr.needed = st is None
         if st is None and mem_age < self.a.mem_hold:
             held = self.last_mem[1]
             st = dict(held, src="memory-held", zombies=[
@@ -694,10 +747,11 @@ class Bot:
             self.ocr.ready.wait(15)
             if self.ocr.error and self.a.verbose:
                 print("[ocr] %s" % self.ocr.error, file=sys.stderr)
-        try:
-            self.typist.focus(self.ocr.reader._clip() if self.ocr else None)
-        except Exception:
-            pass
+        if self.p.get("focus_click", True):  # off for the real game: could hit a menu button
+            try:
+                self.typist.focus(self.ocr.reader._clip() if self.ocr else None)
+            except Exception:
+                pass
         t0 = time.time()
         ru0 = resource.getrusage(resource.RUSAGE_SELF)
         self.cpu0 = ru0.ru_utime + ru0.ru_stime
@@ -749,6 +803,24 @@ class Bot:
             time.sleep(tick)
             return
         self.idle_reads = 0
+        if st.get("waiting"):
+            if self.waiting_msg != st["waiting"]:
+                self.waiting_msg = st["waiting"]
+                print("waiting: %s (start a round in Chrome)" % st["waiting"])
+            self.target_id = None
+            time.sleep(0.25)
+            return
+        self.waiting_msg = None
+        if st.get("over") and self.p.get("wait_after_over"):
+            if not self.over_reported:
+                self.over_reported = True
+                self.games += 1
+                print("game over (kills %s, level %s); waiting for the next round, Ctrl+C to quit"
+                      % (st.get("kills"), st.get("level")))
+            self.target_id = None
+            time.sleep(0.5)
+            return
+        self.over_reported = False
         if st.get("over"):
             if self.p.get("reload_if_over") and self.stats["keys"] == 0 and not self.reloaded:
                 # found a finished game before playing: reload the tab once
@@ -849,7 +921,10 @@ def main(argv=None):
     ap.add_argument("--wpm", type=float, default=140, help="normal typing speed")
     ap.add_argument("--max-wpm", type=float, default=160, help="burst speed when a zombie is about to reach the logs")
     ap.add_argument("--hz", type=float, default=20, help="state polls per second")
-    ap.add_argument("--ocr-hz", type=float, default=1.0, help="OCR cross-checks per second")
+    ap.add_argument("--ocr-hz", type=float, default=0.33,
+                    help="OCR cross-checks per second while game data works")
+    ap.add_argument("--ocr-fallback-hz", type=float, default=1.5,
+                    help="OCR reads per second when game data fails (and in --mode ocr)")
     ap.add_argument("--mem-hold", type=float, default=1.0,
                     help="s to keep using the last game-data state if a read fails, before OCR")
     ap.add_argument("--mem-carry", type=float, default=2.0,
