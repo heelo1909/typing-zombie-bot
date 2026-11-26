@@ -1,5 +1,15 @@
 # progress.md
 
+## 2026-11-26: session 3 (first live run on the real game)
+- Real game, Hard: **106 kills, reached level 4**, ~4 min 13 s. Game data read every tick (3591/3591), CPU 4.9 % avg, 101 MB peak. Bot typed at a steady 140 WPM; almost no zombie reached the logs until the last ~15 s.
+- Lost in the level-4 horde wave. Spawn delay 2650 ms × 0.75³ × 0.65 ≈ 0.73 s per zombie. 7.6-letter words at 140 WPM + moves ≈ 1.3 kills/s, so the bot was at capacity and the right side got swamped.
+- Power-ups: 16 books used, 0 ice/bomb. Fixes:
+  - No power-up pickup while one is held (the game destroys the held one).
+  - Ice/bomb/book are also used when **overloaded** (required speed > `--max-wpm` for the next 3 zombies), not only when a zombie is already doomed.
+  - Pickups are logged as `pickup:<kind>`.
+- Mock check after the change: 48/49 kills, 100 % stopped before the logs, 3.3 % CPU. Tests **76 / 76**.
+- OCR agreement on the real game was 41.5 %. The real label font/positions need tuning, but OCR is only a fallback.
+
 ## 2026-11-26: session 2 (recon on the real game, done from the work Mac)
 - The user ran `recon.py` on the live game. Found Phaser 3.10.1 on a 916×400 WebGL canvas in the page. Read the game's objects and code read-only over CDP; full findings in `docs/game_notes.md`.
 - Wrote `probes/tommyq.js` (zombies + power-up words, rows, sides, distance to the chop line, speed from fps, letters typed, held power-up, log health, game over) and filled `profiles/tommyq.json` (`needs_recon: false`). Verified the probe on the live page.

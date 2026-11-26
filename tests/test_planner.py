@@ -224,6 +224,23 @@ class TestPowerupPickup(unittest.TestCase):
     def test_pickup_only(self):
         self.assertEqual(zb.choose_target([PU("p", "bonus", 0, "L")], P, None, 13.3, KT)["id"], "p")
 
+    def test_no_pickup_while_holding(self):
+        # real game: collecting a power-up destroys the one already held
+        zs = [Z(1, "abc", 0, "L", 380, speed=30), PU("p", "bonus", 2, "R")]
+        self.assertEqual(zb.choose_target(zs, P, None, 13.3, KT, holding=True)["id"], 1)
+
+    def test_ice_when_overloaded(self):
+        zs = [Z(i, "abcdefghij", i % 5, "LR"[i % 2], 40 + 10 * i, speed=30) for i in range(4)]
+        self.assertTrue(zb.choose_powerup({"powerup": "ice", "zombies": zs}, P, 13.3, KT))
+
+    def test_bomb_when_overloaded(self):
+        zs = [Z(i, "abcdefghij", i % 5, "LR"[i % 2], 40 + 10 * i, speed=30) for i in range(4)]
+        self.assertTrue(zb.choose_powerup({"powerup": "bomb", "zombies": zs}, P, 13.3, KT))
+
+    def test_ice_kept_when_coping(self):
+        zs = [Z(1, "abc", 0, "L", 300, speed=30), Z(2, "abcd", 3, "R", 350, speed=30)]
+        self.assertFalse(zb.choose_powerup({"powerup": "ice", "zombies": zs}, P, 13.3, KT))
+
     def test_pickups_not_counted_for_powerup_use(self):
         st = {"powerup": "bomb", "zombies": [PU("a", "x", 0, "L"), PU("b", "y", 1, "L"), PU("c", "z", 2, "L")]}
         self.assertFalse(zb.choose_powerup(st, P, 13.3, KT))

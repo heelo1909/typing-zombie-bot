@@ -191,16 +191,18 @@ def game_lock(zombies, player):
                  and z["row"] == player["row"] and z["side"] == player["facing"]), None)
 
 
-def choose_target(zombies, player, current_id, max_cps, key_time):
+def choose_target(zombies, player, current_id, max_cps, key_time, holding=False):
     """The game's lock (a word already started in Tommy's lane) wins: letters
     go there. It's only abandoned when switching saves more zombies, since
     leaving the lane resets it. Otherwise: most dangerous first (chopping the
     logs, then closest to the logs), skipping walkers that can't be reached in
-    time even at max speed (unless none can)."""
+    time even at max speed (unless none can).
+    holding: a power-up is already held. Collecting another would destroy it
+    (real game rule), so power-up words are ignored then."""
     queue = edf_order(zombies, player)
-    pickup = [z for z in zombies if is_powerup(z) and remaining(z) > 0]
+    pickup = [] if holding else [z for z in zombies if is_powerup(z) and remaining(z) > 0]
     lock = game_lock(zombies, player)
-    if lock is not None and is_powerup(lock):
+    if lock is not None and is_powerup(lock) and not holding:
         return lock  # already typing a power-up word: finish it
     if not queue:
         return pickup_if_safe(pickup, queue, player, max_cps, key_time) if pickup else None
@@ -260,15 +262,18 @@ def choose_powerup(state, player, cps, key_time):
     if not zs:
         return False
     doomed = [z for z in zs if not killable(z, player, cps, key_time)]
+    # overloaded: even at max speed the next few zombies can't all be killed in time
+    overloaded = required_cps(edf_order(zs, player), player, key_time) > cps
     if p == "bomb":
         near = [z for z in zs if deadline(z) < 3.0]
-        return len(near) >= 3 or bool(doomed)
+        return len(near) >= 3 or bool(doomed) or (overloaded and len(zs) >= 3)
     if p == "book":  # kills every zombie in Tommy's row on the side he faces
         lane = [z for z in zs if z["row"] == player["row"] and z["side"] == player["facing"]]
-        return len(lane) >= 2 or any(at_logs(z) for z in lane) or any(z in doomed for z in lane)
+        return len(lane) >= 2 or any(at_logs(z) for z in lane) or any(z in doomed for z in lane) \
+            or (overloaded and len(lane) >= 1)
     if p == "ice":
-        return bool(doomed) or sum(1 for z in zs if at_logs(z)) >= 2
-    return bool(doomed)
+        return bool(doomed) or sum(1 for z in zs if at_logs(z)) >= 2 or overloaded
+    return bool(doomed) or overloaded
 
 
 def key_delay(cps, rng, jitter=0.3):
@@ -847,7 +852,8 @@ class Bot:
             self._log(now, "powerup", st.get("powerup"), None, cps, st["src"])
             self.send("Enter", tick)
             return
-        tgt = choose_target(zs, self.player, self.target_id, self.max_cps, self.key_time)
+        tgt = choose_target(zs, self.player, self.target_id, self.max_cps, self.key_time,
+                            holding=bool(st.get("powerup")))
         if tgt is None:
             self.target_id = None
             time.sleep(tick)
@@ -855,7 +861,8 @@ class Bot:
         if tgt["id"] != self.target_id:
             self.target_id = tgt["id"]
             self.stats["words_started"] += 1
-            self._log(now, "target", tgt["word"], tgt, cps, st["src"])
+            self._log(now, "pickup:" + str(tgt.get("powerup")) if is_powerup(tgt) else "target",
+                      tgt["word"], tgt, cps, st["src"])
         mv = movement_keys(tgt, self.player)
         if mv:  # movement first, then re-read state
             for k in mv:
