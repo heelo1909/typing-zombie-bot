@@ -23,6 +23,8 @@ Everything that doesn't depend on the real game is built and tested against `moc
 
 Also confirmed: letters go to the word you start typing; a label behind another zombie can be covered on screen. User priority: closest to the logs / most dangerous first; game data outranks OCR (already implemented).
 
+Also confirmed: a zombie at the logs stays there chopping until killed (mock default `chop=1`).
+
 ## Known open questions
-- Does a zombie that reaches the logs stay there chopping until killed? (mock assumes yes)
+- In recon, find how the game marks a chopping zombie so `probes/tommyq.js` can set `chopping: true` (otherwise `dist <= 0` is used).
 - Power-up indicator location (for the probe or OCR).

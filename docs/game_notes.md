@@ -10,7 +10,7 @@ Status: **web research + rules confirmed by the user (2026-11-26); the game's co
 - **Letters go to the word you start typing.** With two zombies in the same row and side, you can type either one's word.
 - The label of a zombie *behind* another can be covered by the one in front (on screen), so game data is needed to see it.
 - User priority: kill zombies **closest to the logs / most dangerous** first, and trust game data over screen reading.
-- Assumed (not yet confirmed): a zombie that reaches the logs stays there chopping until killed. The mock models this (`chop=1`).
+- **A zombie that reaches the logs stays there chopping until you kill it** (confirmed). The mock models this (`chop=1`, default).
 
 ## Known from research (2026-11-26)
 - URL: `https://www.typing.com/student/game/tommyq`
@@ -32,7 +32,8 @@ Sources: EPCC typing guide, Homeschool Superfreak review, typinggams fan page (s
 - [x] Typo effect: ignored, no penalty (confirmed)
 - [x] A partial word does NOT survive leaving the row/side: it resets (confirmed)
 - [x] Two in one lane: letters go to the word you start typing (confirmed)
-- [ ] Does a zombie at the logs stay and chop until killed?
+- [x] A zombie at the logs stays and chops until killed (confirmed)
+- [ ] How the game marks a chopping zombie in its data (for `chopping` in the probe)
 - [ ] Power-up pickup and display (how to read which one is held)
 - [ ] Fence HP and game-over detection
 - [ ] Start/restart flow (menus to click, settings to pick)

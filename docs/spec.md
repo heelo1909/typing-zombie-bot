@@ -29,4 +29,5 @@ The user wants a hands-off player that is accurate and cheap to run on an M4 Mac
 - ✔ Letters go to the word you start typing (either of two zombies in one lane can be chosen).
 - ✔ A zombie behind another can have its label covered on screen.
 - Type the whole word over a zombie to shoot it. Enter uses a power-up (Book = clear row, Ice = freeze 10 s, Bomb = kill all).
+- ✔ A zombie that reaches the logs (fence) stays there chopping until killed.
 - Game over when zombies break the fence.

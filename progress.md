@@ -1,5 +1,8 @@
 # progress.md
 
+## 2026-11-26: session 1d
+User confirmed: zombies at the logs stay there chopping until killed. The bot and mock already assumed this; docs updated.
+
 ## 2026-11-26: session 1c (targeting + game-data priority)
 
 ### User input
