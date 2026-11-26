@@ -45,7 +45,7 @@ def main():
     ap.add_argument("--seconds", type=float, default=60)
     ap.add_argument("--mode", default="mixed")
     ap.add_argument("--pace", default="hard")
-    ap.add_argument("--typo", default="ignore")
+    ap.add_argument("--typo", default="ignore", help="real game: ignore")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--hp", type=int, default=1000, help="high HP so the run lasts --seconds")
     ap.add_argument("--extra", default="", help="extra args for zombie_bot.py")
@@ -78,7 +78,7 @@ def main():
         "mode": a.mode, "pace": a.pace, "typo": a.typo, "seconds": a.seconds,
         "spawned": s["spawned"], "kills": s["kills"], "fence_hits": s["fence_hits"],
         "kill_ratio": round(s["kills"] / resolved, 3) if resolved else None,
-        "misses": s["misses"], "keys": s["keys"], "powerups": s["powerups"], "level": st["level"],
+        "misses": s["misses"], "resets": s.get("resets"), "keys": s["keys"], "powerups": s["powerups"], "level": st["level"],
         "bot_cpu_avg": round(sum(cpu[1:]) / max(1, len(cpu) - 1), 1) if cpu else None,
         "bot_cpu_max": round(max(cpu), 1) if cpu else None,
         "bot_rss_max_mb": round(max(rss), 1) if rss else None,

@@ -27,7 +27,7 @@ Writes `recon/report.json`, `recon/summary.txt`, and a screenshot.
 ## Try it on the mock
 ```bash
 HEADLESS=1 PORT=9333 PROFILE_DIR=/tmp/zb-chrome ./launch_chrome.sh "file://$PWD/mock/tommyq_mock.html"
-.venv/bin/python bench/e2e_mock.py --port 9333 --seconds 60 --mode mixed --typo reset
+.venv/bin/python bench/e2e_mock.py --port 9333 --seconds 60 --mode mixed
 ```
 
 ## Tests
@@ -35,7 +35,7 @@ HEADLESS=1 PORT=9333 PROFILE_DIR=/tmp/zb-chrome ./launch_chrome.sh "file://$PWD/
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-## Measured on the mock (M4, hard pace, typos reset the word, 60 s)
+## Measured on the mock (M4, hard pace, real rules, 60 s)
 See `progress.md` for the latest numbers.
 
 ## Note

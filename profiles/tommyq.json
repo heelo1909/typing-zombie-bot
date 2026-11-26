@@ -14,5 +14,5 @@
   "fence_x": {"L": 420, "R": 540},
   "default_speed": 60,
   "start_row": 2, "start_facing": "R",
-  "_note": "All geometry values are placeholders until recon.py runs on the live game."
+  "_note": "rows = 5 is confirmed; the y/x geometry values are placeholders until recon.py runs on the live game."
 }

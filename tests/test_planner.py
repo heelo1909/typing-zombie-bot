@@ -89,6 +89,42 @@ class TestTargeting(unittest.TestCase):
         self.assertFalse(zb.killable(Z(1, "abcdefghijklmnop", 0, "L", 30), P, 13.3, KT))
 
 
+class TestSwitchCost(unittest.TestCase):
+    """Real game: leaving the row / turning resets the partly typed word."""
+
+    def test_finishes_nearly_done_word(self):
+        cur = Z(1, "abcdefghij", 2, "R", 90, typed=9)       # 1 char left, ttf 1.5 s
+        other = Z(2, "abc", 1, "R", 60)                       # ttf 1.0 s
+        self.assertEqual(zb.choose_target([cur, other], P, 1, 13.3, KT)["id"], 1)
+
+    def test_switch_pays_off_false_when_both_saved_anyway(self):
+        cur = Z(1, "abcdefghij", 2, "R", 90, typed=9)
+        other = Z(2, "abc", 1, "R", 60)
+        self.assertFalse(zb.switch_pays_off(cur, other, P, 13.3, KT))
+
+    def test_switches_when_finishing_first_loses_other(self):
+        cur = Z(1, "averyveryverylongword", 2, "R", 900, typed=2)  # far away
+        other = Z(2, "go", 0, "L", 40)                              # ttf 0.67 s
+        self.assertTrue(zb.switch_pays_off(cur, other, P, 13.3, KT))
+        self.assertEqual(zb.choose_target([cur, other], P, 1, 13.3, KT)["id"], 2)
+
+    def test_reset_counted_in_switch_cost(self):
+        # Switching saves `other` but the reset would doom cur -> same count, stay.
+        cur = Z(1, "abcdefghijklmn", 2, "R", 90, typed=12)  # 2 left, ttf 1.5 s
+        other = Z(2, "abcdefgh", 0, "L", 60)                 # ttf 1.0 s, can't wait
+        self.assertFalse(zb.switch_pays_off(cur, other, P, 13.3, KT))
+
+    def test_locks_onto_in_game_progress(self):
+        partial = Z(1, "abcdef", 2, "R", 200, typed=3)
+        other = Z(2, "abc", 2, "R", 190)
+        self.assertEqual(zb.choose_target([partial, other], P, None, 13.3, KT)["id"], 1)
+
+    def test_no_lock_when_progress_elsewhere(self):
+        partial = Z(1, "abcdef", 0, "L", 200, typed=3)   # not in our lane
+        other = Z(2, "abc", 2, "R", 100)
+        self.assertEqual(zb.choose_target([partial, other], P, None, 13.3, KT)["id"], 2)
+
+
 class TestSpeedChoice(unittest.TestCase):
     def test_base_speed_when_relaxed(self):
         q = zb.edf_order([Z(1, "abc", 2, "R", 600)], P)
@@ -240,6 +276,25 @@ class TestTypistDry(unittest.TestCase):
         zb.Typist(Rec()).press("ArrowLeft")
         self.assertEqual(calls[0][1]["windowsVirtualKeyCode"], 37)
         self.assertNotIn("text", calls[0][1])
+
+
+class TestOwnTypedCount(unittest.TestCase):
+    def bot(self, own):
+        b = zb.Bot.__new__(zb.Bot)
+        b.own = own
+        return b
+
+    def test_trusts_own_count_while_game_lags(self):
+        b = self.bot((7, 4, 10.0))
+        self.assertEqual(b._next_index(Z(7, "zombies", 0, "L", 9, typed=3), 10.1), 4)
+
+    def test_falls_back_when_key_lost(self):
+        b = self.bot((7, 4, 10.0))
+        self.assertEqual(b._next_index(Z(7, "zombies", 0, "L", 9, typed=3), 10.5), 3)
+
+    def test_other_target_uses_game_count(self):
+        b = self.bot((7, 4, 10.0))
+        self.assertEqual(b._next_index(Z(8, "zombies", 0, "L", 9, typed=1), 10.1), 1)
 
 
 if __name__ == "__main__":

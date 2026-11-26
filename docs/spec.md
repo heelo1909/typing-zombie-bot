@@ -20,8 +20,10 @@ The user wants a hands-off player that is accurate and cheap to run on an M4 Mac
 | R9 | No macOS Accessibility / Screen Recording permission needed | keys + screenshots go through CDP |
 | R10 | Safe stop: Ctrl+C, game over, or 10 s without game state | code path in `Bot._tick` |
 
-## Game model (from research; to be confirmed by recon)
-- Tommy stands inside a wooden fence in the middle; zombies walk along grass rows from **both left and right**.
-- Up/Down = change row, Left/Right = face that side. Typing only hits a zombie in Tommy's row on the side he faces.
+## Game model (rules marked ✔ confirmed by the user)
+- ✔ **5 rows**; zombies spawn in any row, from **either left or right**. Tommy is inside a wooden fence in the middle.
+- ✔ Up/Down = change row, Left/Right = face that side. Typing only hits a zombie in Tommy's row on the side he faces.
+- ✔ A typo does nothing (no penalty, no reset).
+- ✔ Leaving the row or turning resets the partly typed word.
 - Type the whole word over a zombie to shoot it. Enter uses a power-up (Book = clear row, Ice = freeze 10 s, Bomb = kill all).
 - Game over when zombies break the fence.

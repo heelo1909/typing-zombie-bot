@@ -1,5 +1,26 @@
 # progress.md
 
+## 2026-11-26: session 1b (game rules confirmed by the user)
+
+### Confirmed rules
+5 rows; zombies spawn in any row from either side; Tommy faces left or right; **a typo does nothing**; **leaving the row or turning resets the partly typed word**.
+
+### Changes
+- Mock: typos ignored by default; moving or turning resets the partly typed word (`stats.resets`).
+- Planner: `switch_pays_off` treats the reset as the cost of switching. It only leaves a half-typed word if that saves more zombies than finishing it first, and it locks onto a zombie the game already shows progress on.
+- Bot: counts its own letters sent per target (`_next_index`). In mixed mode the game's `typed` count lagged behind keys sent during OCR screenshots, so the bot retyped letters. Wrong keystrokes dropped from 68 to 0, and kills in 60 s rose from 38 to 43.
+- Tests: **49 / 49 pass** (+9 for switch cost and letter counting).
+
+### E2E on the mock, real rules, hard pace, 60 s, seed 21
+| mode | kills / fence hits | kill ratio | wrong keys | bot CPU avg | bot RSS max |
+|---|---|---|---|---|---|
+| memory | 43 / 2 | **95.6 %** ✅ | 1 | 1.5 % | 23 MB |
+| mixed (default) | 43 / 3 | **93.5 %** ✅ | 0 | 5.9 % | ~100 MB |
+| ocr only | 39 / 6 | 86.7 % ❌ | 36 | 13.9 % | 98 MB |
+
+OCR-only is still the known gap (fallback mode; retune on the real font after recon).
+
+
 ## 2026-11-26: session 1 (work computer, no access to the live game)
 
 ### Done

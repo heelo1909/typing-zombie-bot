@@ -1,17 +1,18 @@
 {
   "mode": "mixed",
   "pace": "hard",
-  "typo": "reset",
+  "typo": "ignore",
   "seconds": 60.0,
-  "spawned": 50,
+  "spawned": 51,
   "kills": 43,
-  "fence_hits": 2,
-  "kill_ratio": 0.956,
-  "misses": 2,
-  "keys": 498,
-  "powerups": 2,
+  "fence_hits": 3,
+  "kill_ratio": 0.935,
+  "misses": 0,
+  "resets": 0,
+  "keys": 514,
+  "powerups": 1,
   "level": 3,
-  "bot_cpu_avg": 6.2,
-  "bot_cpu_max": 32.6,
-  "bot_rss_max_mb": 99.3
+  "bot_cpu_avg": 5.9,
+  "bot_cpu_max": 33.9,
+  "bot_rss_max_mb": 98.6
 }

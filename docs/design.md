@@ -21,7 +21,7 @@
 | `SpeedTracker` | Estimates zombie speed (px/s) from successive distances when the source doesn't give it. |
 | Planner functions | `edf_order`, `choose_target`, `choose_cps`, `movement_keys`, `choose_powerup`, `killable`. |
 | `Typist` | Sends keys through CDP (`keyDown` with text for letters, `rawKeyDown` for arrows). |
-| `Bot` | Loop: read → plan → act, dead-reckons the player in OCR-only mode, reconnects if the tab drops, writes CSV log and a JSON summary (CPU %, peak RSS). |
+| `Bot` | Tracks its own letters-sent count per target (`_next_index`) because the game's `typed` can lag behind a key sent during a screenshot; falls back to the game's count after 0.3 s. Loop: read → plan → act, dead-reckons the player in OCR-only mode, reconnects if the tab drops, writes CSV log and a JSON summary (CPU %, peak RSS). |
 
 ## Normalized state (probe contract)
 ```json
@@ -35,7 +35,7 @@
 ## Math
 - time-to-fence `ttf = dist / speed`
 - moves = |row − player.row| + (1 if side ≠ facing)
-- **Target**: earliest-deadline-first (EDF), tie-break fewest moves then fewest chars. Skip zombies that can't be killed even at max speed (`moves·key_time + chars/max_cps ≥ ttf`) unless none can. Keep the current target unless finishing it would let a more urgent, still-killable zombie reach the fence.
+- **Target**: earliest-deadline-first (EDF), tie-break fewest moves then fewest chars. Skip zombies that can't be killed even at max speed (`moves·key_time + chars/max_cps ≥ ttf`) unless none can. Keep the current target unless switching saves more zombies (`switch_pays_off`). Switching away from the row or side resets the current word (confirmed rule), so the cost compares *finish current, then other* with *other now, then current from scratch*. With no current target, lock onto a zombie in Tommy's lane that the game already shows progress on.
 - **Speed**: required cps over the first 3 EDF targets = max_k (Σchars_k / (ttf_k − Σmoves_k·key_time − 0.25 s)); typing cps = clamp(1.15 × required, base 80 WPM, max 160 WPM). 1 WPM = 5 chars/min.
 - **Jitter**: each key delay = (1/cps) × U(0.7, 1.3).
 - **Power-ups**: Bomb if ≥ 3 zombies have ttf < 3 s or any is doomed; Book if ≥ 2 in Tommy's row (or a doomed one is); Ice if any is doomed.

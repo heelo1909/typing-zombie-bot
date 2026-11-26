@@ -18,7 +18,9 @@ Everything that doesn't depend on the real game is built and tested against `moc
 7. `--dry-run` on the live game, then live runs on easy, then **hardest**. Log with `--log bench/run_log.csv`. Pass = ≥ 90 % kills before the fence, bot avg CPU ≤ 20 %, RSS < 2 GB. If kills < 90 %: check typo handling, `key_time`, power-up rules, `--max-wpm`; loop.
 8. Update `progress.md`, this file, commit + push.
 
+## Confirmed (user, 2026-11-26)
+5 rows, both sides, typo = no effect, leaving row/side resets the partly typed word. The mock and planner already follow these rules.
+
 ## Known open questions
-- Real typo behaviour (the mock supports `typo=ignore|reset`).
-- Whether a partly typed word survives moving rows in the real game.
+- If two zombies share Tommy's row and side, which one do typed letters go to?
 - Power-up indicator location (for the probe or OCR).

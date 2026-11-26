@@ -138,26 +138,42 @@ def killable(z, player, cps, key_time):
     return moves(z, player) * key_time + remaining(z) / cps < time_to_fence(z)
 
 
+def switch_pays_off(cur, other, player, cps, key_time):
+    """Leaving cur's row/side resets its typed letters (confirmed game rule).
+    Compare 'finish cur, then other' with 'other now, then cur from scratch'
+    and switch only if it saves more zombies."""
+    t_cur = moves(cur, player) * key_time + remaining(cur) / cps
+    after_cur = {"row": cur["row"], "facing": cur["side"]}
+    a_other = t_cur + moves(other, after_cur) * key_time + remaining(other) / cps < time_to_fence(other)
+    a_saved = 1 + a_other  # cur itself is assumed saved when finished first
+    t_other = moves(other, player) * key_time + remaining(other) / cps
+    after_other = {"row": other["row"], "facing": other["side"]}
+    resets = moves(other, player) > 0
+    cur_left = len(cur["word"]) if resets else remaining(cur)
+    b_other = t_other < time_to_fence(other)
+    b_cur = t_other + moves(cur, after_other) * key_time + cur_left / cps < time_to_fence(cur)
+    return b_other + b_cur > a_saved
+
+
 def choose_target(zombies, player, current_id, max_cps, key_time):
-    """Keep the current target unless finishing it first would let a more
-    urgent zombie reach the fence; otherwise follow EDF, skipping zombies that
-    cannot be killed in time even at max speed (unless none can)."""
+    """Keep the current target unless switching saves more zombies (switching
+    away from its row/side resets its progress); otherwise follow EDF, skipping
+    zombies that cannot be killed in time even at max speed (unless none can)."""
     queue = edf_order(zombies, player)
     if not queue:
         return None
     by_id = {z["id"]: z for z in queue}
     cur = by_id.get(current_id)
+    if cur is None:  # also lock onto a zombie the game already has progress on
+        cur = next((z for z in queue if z.get("typed", 0) > 0
+                    and z["row"] == player["row"] and z["side"] == player["facing"]), None)
     if cur is not None:
-        finish = moves(cur, player) * key_time + remaining(cur) / max_cps
-        after = {"row": cur["row"], "facing": cur["side"]}
-        threatened = any(
-            o["id"] != cur["id"] and
-            finish + moves(o, after) * key_time + remaining(o) / max_cps >= time_to_fence(o)
-            and killable(o, player, max_cps, key_time)
-            and time_to_fence(o) < time_to_fence(cur)
-            for o in queue)
-        if not threatened:
-            return cur
+        for o in queue:
+            if o["id"] == cur["id"] or time_to_fence(o) >= time_to_fence(cur):
+                continue
+            if killable(o, player, max_cps, key_time) and switch_pays_off(cur, o, player, max_cps, key_time):
+                return o
+        return cur
     for z in queue:
         if killable(z, player, max_cps, key_time):
             return z
@@ -472,6 +488,7 @@ class Bot:
         self.recent_typed = {}  # word -> time it was finished (OCR-only staleness guard)
         self.last_ocr_t = 0.0
         self.ocr_seen = {}  # OCR word id -> consecutive frames seen
+        self.own = (None, 0, 0.0)  # (target id, letters sent, time of last send)
         self.stats = {"ticks": 0, "mem_ok": 0, "ocr_ok": 0, "ocr_agree": [], "keys": 0,
                       "powerups": 0, "words_started": 0, "reconnects": 0}
         self.log = None
@@ -596,6 +613,16 @@ class Bot:
                 self.ocr.stop()
             self.report(time.time() - t0)
 
+    def _next_index(self, tgt, now):
+        """Which letter to send next. The game's `typed` can lag behind keys
+        just sent (e.g. while a screenshot is taken), so trust our own count
+        for the same target unless the game disagrees for > 0.3 s (key lost)."""
+        game_typed = int(tgt["typed"])
+        tid, n, t = self.own
+        if tid == tgt["id"] and n > game_typed and now - t < 0.3:
+            return n
+        return game_typed
+
     def _tick(self, t0, tick):
         """One plan/act step. Returns "stop" to end the run."""
         a = self.a
@@ -637,8 +664,12 @@ class Bot:
             return
         # type the next char; when source has no `typed`, type whole word
         if "typed" in tgt and st["src"] == "memory":
-            ch = tgt["word"][int(tgt["typed"])]
-            self.send(ch, key_delay(cps, self.rng))
+            idx = self._next_index(tgt, now)
+            if idx >= len(tgt["word"]):
+                time.sleep(tick)  # all sent; wait for the game to register the kill
+                return
+            self.send(tgt["word"][idx], key_delay(cps, self.rng))
+            self.own = (tgt["id"], idx + 1, time.time())
         else:
             for ch in tgt["word"][int(tgt.get("typed", 0)):]:
                 self.send(ch, key_delay(cps, self.rng))
