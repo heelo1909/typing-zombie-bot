@@ -647,8 +647,14 @@ class Bot:
         print("[cdp] connection lost (%s); reconnecting" % err, file=sys.stderr)
         for c in {id(self.page): self.page, id(self.game): self.game}.values():
             c.close()
-        for _ in range(20):
+        t0, last_err, hinted = time.time(), None, False
+        while True:  # wait until the game tab is back (closed, reloaded, Chrome restarted)
             time.sleep(0.5)
+            if not hinted and time.time() - t0 > 3:
+                hinted = True
+                print("[cdp] no Tommy Q tab on port %d (%s). Open %s in the bot's Chrome window;"
+                      " waiting, Ctrl+C to quit" % (self.a.port, last_err, self.p["page_match"]),
+                      file=sys.stderr)
             try:
                 self.page_ws = self._connect()["webSocketDebuggerUrl"]
                 if self.ocr:  # OCR thread keeps its own connection; restart it
@@ -657,10 +663,12 @@ class Bot:
                                          fallback_hz=self.ocr.fallback_hz)
                     self.ocr.start()
                 self.stats["reconnects"] += 1
+                if hinted:
+                    print("[cdp] reconnected to the game tab", file=sys.stderr)
                 return True
-            except Exception:
+            except Exception as e:
+                last_err = e
                 continue
-        return False
 
     def read_state(self, now):
         """Game data (memory) is the source of truth; OCR only fills gaps.
@@ -995,7 +1003,21 @@ def main(argv=None):
     if profile.get("needs_recon") and a.mode != "ocr":
         print("profile %s still needs recon (see plan.md); run recon.py first" % a.profile)
         return 2
-    Bot(a, profile).run()
+    hinted = False
+    while True:  # wait for Chrome / the game tab instead of crashing
+        try:
+            bot = Bot(a, profile)
+            break
+        except (CDPError, OSError) as e:
+            if not hinted:
+                hinted = True
+                print("waiting for the game tab: %s\n  start Chrome with ./launch_chrome.sh and open %s"
+                      " (Ctrl+C to quit)" % (e, profile["page_match"]))
+            try:
+                time.sleep(1.0)
+            except KeyboardInterrupt:
+                return 1
+    bot.run()
     return 0
 
 

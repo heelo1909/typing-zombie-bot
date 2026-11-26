@@ -1,5 +1,13 @@
 # progress.md
 
+## 2026-11-26: session 4b (first instant run on the real game)
+- Normal version, real game (summary of the run before): 323 s, 225 targets, game over at **253 kills, level 6**. `lane_reversals` 33, `stale_player_reads` 205 (the lane fix caught 205 stale reads). CPU 4.9 %, 120 MB.
+- Instant version, real game: started typing ("designing", "annual"), then the typing.com tab disappeared from the bot's Chrome. Its DevTools connection closed and reconnecting looped silently. Cause of the tab loss is unknown; asked the user.
+- Fixes:
+  - Reconnect now waits indefinitely for the game tab, with a message after 3 s and on success.
+  - Startup with no game tab waits with instructions instead of crashing.
+  - Tested on the mock by closing and reopening the tab mid-run: 1 reconnect, play resumed.
+
 ## 2026-11-26: session 4 (two versions)
 - User asked for two versions: one that kills everything instantly, one that plays normally at ~140 WPM.
 - `PRESETS` in `zombie_bot.py` + two runnable scripts:
