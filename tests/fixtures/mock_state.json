@@ -1,0 +1,58 @@
+{
+ "ok": true,
+ "over": false,
+ "rows": 5,
+ "player": {
+  "row": 2,
+  "facing": "R"
+ },
+ "powerup": null,
+ "hp": 957,
+ "stats": {
+  "spawned": 47,
+  "kills": 0,
+  "fence_hits": 43,
+  "misses": 0,
+  "keys": 0,
+  "powerups": 0,
+  "score": 0
+ },
+ "zombies": [
+  {
+   "id": 44,
+   "word": "cooperation",
+   "typed": 0,
+   "row": 2,
+   "side": "R",
+   "dist": 100.44156267344181,
+   "speed": 71.99373207390309
+  },
+  {
+   "id": 45,
+   "word": "distribute",
+   "typed": 0,
+   "row": 3,
+   "side": "R",
+   "dist": 242.55226590168115,
+   "speed": 62.68381031090394
+  },
+  {
+   "id": 46,
+   "word": "prevention",
+   "typed": 0,
+   "row": 2,
+   "side": "L",
+   "dist": 315.54015690310507,
+   "speed": 73.93800457250327
+  },
+  {
+   "id": 47,
+   "word": "photograph",
+   "typed": 0,
+   "row": 3,
+   "side": "R",
+   "dist": 412.40335452133377,
+   "speed": 71.97873103460296
+  }
+ ]
+}

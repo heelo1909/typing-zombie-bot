@@ -1,0 +1,17 @@
+{
+  "mode": "ocr",
+  "pace": "hard",
+  "typo": "reset",
+  "seconds": 60.0,
+  "spawned": 49,
+  "kills": 38,
+  "fence_hits": 7,
+  "kill_ratio": 0.844,
+  "misses": 27,
+  "keys": 495,
+  "powerups": 0,
+  "level": 3,
+  "bot_cpu_avg": 15.8,
+  "bot_cpu_max": 35.9,
+  "bot_rss_max_mb": 98.0
+}

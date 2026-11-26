@@ -1,0 +1,133 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tommy Q mock (test stand-in)</title>
+<style>
+  html,body{margin:0;background:#1d2a1d;color:#eee;font-family:-apple-system,Helvetica,Arial,sans-serif}
+  #wrap{width:960px;margin:8px auto}
+  canvas{display:block;background:#3c6b33;outline:none}
+  #hud{padding:4px 0;font-size:14px}
+</style></head>
+<body><div id="wrap">
+<div id="hud">Mock of Tommy Q: Zombie Defender for offline bot testing. Up/Down = row, Left/Right = face, type words, Enter = power-up.</div>
+<canvas id="game" width="960" height="540" tabindex="0"></canvas>
+</div>
+<script>
+/* Test stand-in that follows the researched game model: rows of grass, zombies
+   from both sides, Tommy must be in the zombie's row and facing it, whole-word
+   typing, wooden fence with HP, power-ups on Enter. Query params:
+   seed, pace=easy|medium|hard, typo=ignore|reset, hp, autostart=0|1 */
+(function(){
+var Q = new URLSearchParams(location.search);
+var seed = parseInt(Q.get('seed') || '1', 10) >>> 0;
+function rnd(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+var PACE = {easy:{speed:35,every:2.6}, medium:{speed:50,every:1.9}, hard:{speed:68,every:1.35}}[Q.get('pace')||'hard'];
+var TYPO = Q.get('typo') || 'ignore';
+var WORDS = ("abandoned absolutely academic accelerate accidental accompany accomplish accurate achievement acknowledge acquisition adjustment administer admirable adolescent advantage adventure advertise affection aggressive agreement allocation alternative ambassador ambitious amendment analysis ancestor announcement anticipate apparently appearance appreciate approximate architect argument arrangement assessment assignment assistance atmosphere attachment attractive authority automatic available awkward background bankruptcy beautiful beginning behavior beneficial biography boundary breakfast brilliant broadcast calculate campaign candidate capability catastrophe celebrate certainly challenge character chemistry circumstance classroom collection combination comfortable commercial commission commitment communicate community comparison competition complicated comprehensive concentrate conclusion conference confidence confusion connection conscious consequence considerable consistent constitution construction consultant contemporary continuous contribution controversy convenience conversation cooperation corporation creativity criticism curiosity curriculum dangerous dedication definitely delightful democracy demonstrate department dependent description desperate destination determine development dictionary difference difficulty dimension direction disappear discipline discovery discussion distribute documentary domestic dramatically earthquake economics education efficiency electricity elementary eliminate embarrass emergency emotional emphasize employment encounter encourage engineering enormous enthusiasm environment equipment especially establish evaluation eventually everything evolution examination excellent excitement executive exhibition existence expensive experience experiment explanation exploration expression extension extraordinary fascinating favorite festival financial flexibility forgotten formation fortunately foundation frequently friendship frightening fundamental generation geography government graduation guarantee guideline happiness headquarters helicopter highlight historical hospital household hypothesis identical imagination immediately implement importance impossible impression improvement incredible independent indication individual industrial inevitable influence information ingredient initiative innocent inspection installation institution instruction instrument intelligence intention interesting interpretation interview introduction investigation invisible journalist judgment knowledge laboratory landscape language leadership legislation lightning literature magnificent management manufacture marvelous mathematics measurement mechanism medication membership memorable microphone midnight millennium mysterious narrative necessary negotiation neighborhood nevertheless newspaper nightmare notebook objective observation obviously occasional occupation operation opportunity opposition orchestra organization originally outstanding overwhelming paragraph parliament participate particular passenger perception performance permanent personality perspective phenomenon philosophy photograph physically playground pleasure political population possession possibility potential practical preference preparation presentation president prevention principle priority probability procedure production profession programmer progressive pronounce proportion protection psychology publication punishment qualification quarterback questionnaire realistic reasonable recognition recommend reflection refrigerator regulation relationship relatively reluctant remarkable repetition representative reputation requirement reservation residential resolution resource responsibility restaurant revolution sanctuary satisfaction scholarship scientific secretary security selection sensitive separation significant similarity situation skeleton slaughter something sophisticated specialist spectacular spontaneous statement strategy strengthen structure submarine substantial successful sufficient suggestion supermarket supervisor surprising surrounding suspicious sympathy technique technology telephone temperature temporary territory thoroughly throughout tomorrow tournament tradition transform transportation tremendous ultimately uncomfortable understanding unemployment unexpected university unnecessary vegetable vulnerable wilderness wonderful worthwhile yesterday zookeeper").split(' ');
+
+var cv = document.getElementById('game'), cx = cv.getContext('2d');
+var W = cv.width, H = cv.height;
+var game = window.game = {
+  rows: [140, 220, 300, 380, 460], centerX: 480, fenceL: 420, fenceR: 540,
+  player: {row: 2, facing: 'R'}, zombies: [], powerup: null, frozen: 0,
+  hp: parseInt(Q.get('hp') || '10', 10), over: false, started: Q.get('autostart') !== '0',
+  level: 1, speed: PACE.speed, every: PACE.every, nextSpawn: 0.5, t: 0, nextId: 1,
+  stats: {spawned: 0, kills: 0, fence_hits: 0, misses: 0, keys: 0, powerups: 0, score: 0}
+};
+
+function spawn(){
+  var side = rnd() < 0.5 ? 'L' : 'R';
+  var row = Math.floor(rnd() * game.rows.length);
+  var word = WORDS[Math.floor(rnd() * WORDS.length)];
+  var z = {id: game.nextId++, word: word, typed: 0, row: row, side: side,
+           x: side === 'L' ? -20 : W + 20, speed: game.speed * (0.85 + rnd() * 0.3), alive: true};
+  game.zombies.push(z); game.stats.spawned++;
+}
+function kill(z){
+  z.alive = false; game.stats.kills++; game.stats.score += 10 * z.word.length;
+  if (game.stats.kills % 15 === 0){ game.level++; game.speed *= 1.08; game.every *= 0.92; }
+  if (!game.powerup && rnd() < 0.08) game.powerup = ['bomb','book','ice'][Math.floor(rnd()*3)];
+}
+function targetInLane(){
+  var p = game.player, best = null, bd = 1e9;
+  game.zombies.forEach(function(z){
+    if (!z.alive || z.row !== p.row || z.side !== p.facing) return;
+    var d = z.side === 'L' ? game.fenceL - z.x : z.x - game.fenceR;
+    if (z.typed > 0) d -= 1e6;          // keep partially typed one locked
+    if (d < bd){ bd = d; best = z; }
+  });
+  return best;
+}
+function usePowerup(){
+  var p = game.powerup; if (!p) return; game.powerup = null; game.stats.powerups++;
+  if (p === 'bomb') game.zombies.forEach(function(z){ if (z.alive) kill(z); });
+  if (p === 'book') game.zombies.forEach(function(z){ if (z.alive && z.row === game.player.row) kill(z); });
+  if (p === 'ice') game.frozen = 10;
+}
+document.addEventListener('keydown', function(e){
+  if (game.over) return;
+  game.stats.keys++;
+  var p = game.player;
+  if (!game.started){ if (e.key === 'Enter') game.started = true; return; }
+  if (e.key === 'ArrowUp'){ p.row = Math.max(0, p.row - 1); e.preventDefault(); return; }
+  if (e.key === 'ArrowDown'){ p.row = Math.min(game.rows.length - 1, p.row + 1); e.preventDefault(); return; }
+  if (e.key === 'ArrowLeft'){ p.facing = 'L'; e.preventDefault(); return; }
+  if (e.key === 'ArrowRight'){ p.facing = 'R'; e.preventDefault(); return; }
+  if (e.key === 'Enter'){ usePowerup(); return; }
+  if (e.key.length !== 1) return;
+  var z = targetInLane();
+  if (z && z.word[z.typed] === e.key){
+    z.typed++; if (z.typed >= z.word.length) kill(z);
+  } else {
+    game.stats.misses++;
+    if (z && TYPO === 'reset') z.typed = 0;
+  }
+});
+
+function step(dt){
+  if (!game.started || game.over) return;
+  game.t += dt;
+  if (game.frozen > 0) game.frozen = Math.max(0, game.frozen - dt);
+  game.nextSpawn -= dt;
+  if (game.nextSpawn <= 0){ spawn(); game.nextSpawn = game.every * (0.7 + rnd() * 0.6); }
+  game.zombies.forEach(function(z){
+    if (!z.alive) return;
+    if (game.frozen <= 0) z.x += (z.side === 'L' ? 1 : -1) * z.speed * dt;
+    var reached = z.side === 'L' ? z.x >= game.fenceL : z.x <= game.fenceR;
+    if (reached){ z.alive = false; game.stats.fence_hits++; (game.fenceLog = game.fenceLog || []).push([z.word, z.row, z.side, z.typed, +game.t.toFixed(1)]); game.hp--; if (game.hp <= 0) game.over = true; }
+  });
+  game.zombies = game.zombies.filter(function(z){ return z.alive; });
+}
+function draw(){
+  cx.fillStyle = '#3c6b33'; cx.fillRect(0, 0, W, H);
+  cx.fillStyle = '#4a7f3f';
+  game.rows.forEach(function(y){ cx.fillRect(0, y - 22, W, 44); });
+  cx.fillStyle = '#8b5a2b';
+  cx.fillRect(game.fenceL - 8, 100, 8, 400); cx.fillRect(game.fenceR, 100, 8, 400);
+  var p = game.player, py = game.rows[p.row];
+  cx.fillStyle = '#2b6cd4'; cx.beginPath(); cx.arc(game.centerX, py, 16, 0, 7); cx.fill();
+  cx.fillStyle = '#fff'; cx.fillRect(game.centerX + (p.facing === 'R' ? 14 : -26), py - 3, 12, 6);
+  cx.font = 'bold 20px Helvetica, Arial, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  game.zombies.forEach(function(z){
+    var y = game.rows[z.row];
+    cx.fillStyle = game.frozen > 0 ? '#9fd' : '#6b8e23';
+    cx.fillRect(z.x - 12, y - 16, 24, 34);
+    var tw = cx.measureText(z.word).width + 10;
+    cx.fillStyle = 'rgba(0,0,0,0.75)'; cx.fillRect(z.x - tw/2, y - 50, tw, 26);
+    cx.fillStyle = '#ffeb3b'; cx.fillText(z.word.slice(0, z.typed), z.x - tw/2 + 5 + cx.measureText(z.word.slice(0, z.typed)).width/2, y - 37);
+    cx.fillStyle = '#fff';
+    var rest = z.word.slice(z.typed), done = cx.measureText(z.word.slice(0, z.typed)).width;
+    cx.fillText(rest, z.x - tw/2 + 5 + done + cx.measureText(rest).width/2, y - 37);
+  });
+  cx.textAlign = 'left'; cx.font = '14px Helvetica, Arial'; cx.fillStyle = '#fff';
+  cx.fillText('HP ' + game.hp + '   Kills ' + game.stats.kills + '   Lv ' + game.level +
+              (game.powerup ? '   Power-up: ' + game.powerup : ''), 10, 20);
+  if (game.over){ cx.font = 'bold 48px Helvetica'; cx.textAlign = 'center'; cx.fillText('GAME OVER', W/2, H/2); }
+}
+var last = performance.now();
+function frame(now){
+  var dt = Math.min(0.1, (now - last) / 1000); last = now;
+  step(dt); draw(); requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+cv.focus();
+})();
+</script></body></html>
